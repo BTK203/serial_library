@@ -1,6 +1,4 @@
 #include "serial_library/serial_library.hpp"
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netdb.h>
@@ -8,9 +6,11 @@
 namespace serial_library
 {
 
-    LinuxUDPTransceiver::LinuxUDPTransceiver(const std::string& address, int port, bool allowAddrReuse)
+    LinuxUDPTransceiver::LinuxUDPTransceiver(const std::string& address, int port, bool skipBind, bool skipConnect, bool allowAddrReuse)
      : address(address),
        port(port),
+       skipBind(skipBind),
+       skipConnect(skipConnect),
        allowAddrReuse(allowAddrReuse),
        sock(-1) { }
 
@@ -31,83 +31,70 @@ namespace serial_library
         {
             if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option)) < 0)
             {
-                SERLIB_LOG_ERROR("setsockopt() failed while trying to allow addr reuse: %s", strerror(errno));
+                SERLIB_LOG_ERROR("setsockopt() failed while trying to allow addr reuse: %s. Continuing setup", strerror(errno));
             }
         }
 
-        //bind to address
-        addrinfo ahints, *ainfo;
-        ahints.ai_family = AF_UNSPEC;
-        ahints.ai_socktype = SOCK_DGRAM;
-        ahints.ai_flags = AI_PASSIVE;
-        ahints.ai_protocol = 0;
-        ahints.ai_addr = NULL;
-        ahints.ai_next = NULL;
-
-        if((res = getaddrinfo(NULL, std::to_string(port).c_str(), &ahints, &ainfo)) < 0)
+        sockaddr_in bindaddr;
+        memset(&bindaddr, 0, sizeof(bindaddr));
+        bindaddr.sin_family = AF_INET;
+        bindaddr.sin_addr.s_addr = INADDR_ANY;
+        bindaddr.sin_port = htons(port);
+        if(!skipBind)
         {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("getaddrinfo() failed for bind: " + to_string(res));
-            return false;
-        }
-
-        //try to bind to an address returned by getaddrinfo
-        addrinfo *nextainfo = ainfo;
-        while(nextainfo)
-        {
-            if(bind(sock, nextainfo->ai_addr, nextainfo->ai_addrlen) == 0)
+            if(bind(sock, (const sockaddr *) &bindaddr, sizeof(bindaddr)) < 0)
             {
-                break;
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("bind() failed: " + string(strerror(errno)));
+                return false;
             }
-
-            SERLIB_LOG_DEBUG("Failed to bind(): %s", strerror(errno));
-            nextainfo = nextainfo->ai_next;
-        }
-
-        if(!nextainfo) //ran out of options to try. didnt bind
-        {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("bind() for all address options failed!");
-            return false;
-        } else
-        {
+            
             SERLIB_LOG_DEBUG("bind() succeeded!");
-        }
-
-        freeaddrinfo(ainfo);
-
-        //now connect to target
-        ahints.ai_family = AF_UNSPEC;
-        ahints.ai_socktype = SOCK_DGRAM;
-        ahints.ai_flags = AI_PASSIVE;
-        ahints.ai_protocol = 0;
-        ahints.ai_addr = NULL;
-        ahints.ai_next = NULL;
-
-        if((res = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &ahints, &ainfo)) < 0)
-        {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("getaddrinfo() failed for connect: " + to_string(res));
-            return false;
-        }
-
-        //try to connect to an address returned by getaddrinfo
-        nextainfo = ainfo;
-        while(nextainfo)
-        {
-            if(connect(sock, nextainfo->ai_addr, nextainfo->ai_addrlen) == 0)
-            {
-                break;
-            }
-
-            SERLIB_LOG_DEBUG("Failed to connect(): %s", strerror(errno));
-            nextainfo = nextainfo->ai_next;
-        }
-
-        if(!nextainfo)
-        {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("connect() failed for all address options!");
-            return false;
         } else
         {
+            SERLIB_LOG_DEBUG("bind() skipped");
+        }
+
+        if(!skipConnect)
+        {
+            //now connect to target
+            addrinfo ahints, *ainfo;
+            memset(&ahints, 0, sizeof(ahints));
+            ahints.ai_family = AF_INET;
+            ahints.ai_socktype = SOCK_DGRAM;
+            ahints.ai_flags = 0;
+            ahints.ai_protocol = 0;
+            ahints.ai_addr = NULL;
+            ahints.ai_next = NULL;
+
+            if((res = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &ahints, &ainfo)) < 0)
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("getaddrinfo() failed for connect: " + to_string(res));
+                return false;
+            }
+
+            //try to connect to an address returned by getaddrinfo
+            addrinfo *nextainfo = NULL;
+            for(nextainfo = ainfo; nextainfo; nextainfo = nextainfo->ai_next)
+            {
+                if(connect(sock, nextainfo->ai_addr, nextainfo->ai_addrlen) == 0)
+                {
+                    break;
+                }
+
+                SERLIB_LOG_DEBUG("Failed to connect(): %s", strerror(errno));
+            }
+
+            if(!nextainfo)
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("connect() failed for all address options!");
+                return false;
+            }
+            
             SERLIB_LOG_DEBUG("connect() succeeded!");
+            freeaddrinfo(ainfo);
+        } else
+        {
+            SERLIB_LOG_DEBUG("connect() skipped");
         }
 
         return true;
@@ -116,13 +103,23 @@ namespace serial_library
 
     void LinuxUDPTransceiver::send(const char *data, size_t numData) const
     {
-        ::send(sock, data, numData, 0);
+        size_t ret = ::send(sock, data, numData, 0);
+        if(ret == -1)
+        {
+            SERLIB_LOG_ERROR("send() failed: %s", strerror(errno));
+        }
     }
 
 
     size_t LinuxUDPTransceiver::recv(char *data, size_t numData) const
     {
-        return ::recv(sock, data, numData, MSG_DONTWAIT);
+        size_t ret = ::recv(sock, data, numData, MSG_DONTWAIT);
+        if(ret == -1)
+        {
+            SERLIB_LOG_ERROR("recv() failed: %s", strerror(errno));
+        }
+
+        return ret;
     }
 
 

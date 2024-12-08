@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 
 namespace serial_library
@@ -64,7 +66,7 @@ namespace serial_library
     {
         public:
         LinuxUDPTransceiver() = default;
-        LinuxUDPTransceiver(const std::string& address, int port, bool allowAddrReuse=false);
+        LinuxUDPTransceiver(const std::string& address, int port, bool skipBind = false, bool skipConnect = false, bool allowAddrReuse=false);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -74,8 +76,33 @@ namespace serial_library
         private:
         const std::string address;
         const int port;
-        const bool allowAddrReuse;
+        const bool 
+            allowAddrReuse,
+            skipBind,
+            skipConnect;
         int sock;
+    };
+
+    /**
+     * This transceiver should be used when a bidirectional UDP connection is desired
+     * between two sockets connected to localhost. This is special functionality
+     * that requires two sockets per transceiver.
+     */
+    class LinuxDualUDPTransceiver : public SerialTransceiver
+    {
+        public:
+        LinuxDualUDPTransceiver() = default;
+        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort);
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) const override;
+        void deinit(void) override;
+
+        private:
+        LinuxUDPTransceiver
+            recvUDP,
+            sendUDP;
     };
 
     #endif

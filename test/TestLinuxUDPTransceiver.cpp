@@ -6,8 +6,8 @@
 TEST_F(LinuxTransceiverTest, TestUDPTransceiverUnidirectional)
 {
     serial_library::LinuxUDPTransceiver
-        transceiver1("127.0.0.1", 9978, true),
-        transceiver2("127.0.0.1", 9978, true);
+        transceiver1("localhost", 9978, false, false, true),
+        transceiver2("localhost", 9978, false, false, true);
     
     const std::string
         expected1 = "hello!",
@@ -45,9 +45,9 @@ TEST_F(LinuxTransceiverTest, TestUDPTransceiverUnidirectional)
 
 TEST_F(LinuxTransceiverTest, TestUDPTransceiverBidirectional)
 {
-    serial_library::LinuxUDPTransceiver
-        transceiver1("127.0.0.1", 9978, true),
-        transceiver2("127.0.0.1", 9978, true);
+    serial_library::LinuxDualUDPTransceiver
+        transceiver1("localhost", 9978, 9979),
+        transceiver2("localhost", 9979, 9978);
     
     const std::string
         expected1 = "hello!",
