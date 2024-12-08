@@ -22,7 +22,7 @@ class LinuxSerialProcessorTest : public LinuxTransceiverTest
 {
     protected:
     bool waitForFrame(SerialFrameId id, Time startTime);
-    uwrt_gyro::SerialProcessor::SharedPtr processor;
+    serial_library::SerialProcessor::SharedPtr processor;
 };
 
 //
@@ -47,8 +47,8 @@ class Type1SerialProcessorTest : public LinuxSerialProcessorTest
     void TearDown() override;
 
     SerialFramesMap frameMap;
-    uwrt_gyro::LinuxSerialTransceiver transceiver;
-    uwrt_gyro::SerialProcessor::SharedPtr processor;
+    serial_library::LinuxSerialTransceiver transceiver;
+    serial_library::SerialProcessor::SharedPtr processor;
 };
 
 enum Type2SerialFrames1
@@ -75,7 +75,7 @@ class Type2SerialProcessorTest : public LinuxSerialProcessorTest
     void TearDown() override;
 
     SerialFramesMap frameMap;
-    uwrt_gyro::LinuxSerialTransceiver transceiver;
+    serial_library::LinuxSerialTransceiver transceiver;
 };
 
 #endif

@@ -5,13 +5,13 @@
 
 TEST_F(LinuxTransceiverTest, TestTransceiverRdWr)
 {
-    uwrt_gyro::LinuxSerialTransceiver transceiver1(
+    serial_library::LinuxSerialTransceiver transceiver1(
         homeDir() + "virtualsp1",
         9600,
         1,
         0);
     
-    uwrt_gyro::LinuxSerialTransceiver transceiver2(
+    serial_library::LinuxSerialTransceiver transceiver2(
         homeDir() + "virtualsp2",
         9600,
         1,
@@ -44,14 +44,14 @@ TEST_F(LinuxTransceiverTest, TestTransceiverRdWr)
 
 TEST_F(LinuxTransceiverTest, TestTransceiverRoWo)
 {
-    uwrt_gyro::LinuxSerialTransceiver transceiver1(
+    serial_library::LinuxSerialTransceiver transceiver1(
         homeDir() + "virtualsp1",
         9600,
         1,
         0,
         O_WRONLY);
     
-    uwrt_gyro::LinuxSerialTransceiver transceiver2(
+    serial_library::LinuxSerialTransceiver transceiver2(
         homeDir() + "virtualsp2",
         9600,
         1,

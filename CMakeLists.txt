@@ -17,6 +17,8 @@ target_include_directories(serial_library PUBLIC include)
 # Compile test files
 #
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 file(GLOB test_src test/*.cpp)
 add_executable(test_serial_library ${test_src})

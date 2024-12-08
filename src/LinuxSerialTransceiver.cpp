@@ -4,7 +4,7 @@
 
 // linux serial port implementation: https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
 
-namespace uwrt_gyro
+namespace serial_library
 {
 
     LinuxSerialTransceiver::LinuxSerialTransceiver(

@@ -6,7 +6,7 @@
 // log level setting
 //
 
-#define CURRENT_LOG_LEVEL SerlibLogLevel::INFO
+#define CURRENT_LOG_LEVEL SerlibLogLevel::DEBUG
 
 //
 // logging macros. These are overridable by defining the macro before including the file

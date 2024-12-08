@@ -1,6 +1,6 @@
 #include "serial_library/serial_library.hpp"
 
-namespace uwrt_gyro
+namespace serial_library
 {
     SerialProcessor::SerialProcessor(SerialTransceiver& transceiver, SerialFramesMap frames, SerialFrameId defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker)
      : transceiver(transceiver),

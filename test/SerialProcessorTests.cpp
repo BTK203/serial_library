@@ -25,7 +25,7 @@ bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, Time startTime)
 void Type1SerialProcessorTest::SetUp() 
 {
     LinuxTransceiverTest::SetUp();
-    transceiver = uwrt_gyro::LinuxSerialTransceiver(
+    transceiver = serial_library::LinuxSerialTransceiver(
         homeDir() + "virtualsp1",
         9600,
         0, 
@@ -43,7 +43,7 @@ void Type1SerialProcessorTest::SetUp()
     };
 
     const char syncValue[1] = {'A'};
-    processor = std::make_shared<uwrt_gyro::SerialProcessor>(
+    processor = std::make_shared<serial_library::SerialProcessor>(
         transceiver, 
         frameMap,
         Type1SerialFrames1::TYPE_1_FRAME_1, 
@@ -61,7 +61,7 @@ void Type1SerialProcessorTest::TearDown()
 void Type2SerialProcessorTest::SetUp() 
 {
     LinuxTransceiverTest::SetUp();
-    transceiver = uwrt_gyro::LinuxSerialTransceiver(
+    transceiver = serial_library::LinuxSerialTransceiver(
         homeDir() + "virtualsp1",
         9600,
         0,
@@ -104,7 +104,7 @@ void Type2SerialProcessorTest::SetUp()
     };
 
     const char syncValue[1] = {'A'};
-    processor = std::make_shared<uwrt_gyro::SerialProcessor>(
+    processor = std::make_shared<serial_library::SerialProcessor>(
         transceiver,
         frameMap,
         Type1SerialFrames1::TYPE_1_FRAME_1,

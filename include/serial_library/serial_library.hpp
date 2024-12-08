@@ -10,7 +10,7 @@
 #include <stdio.h>
 #endif
 
-namespace uwrt_gyro
+namespace serial_library
 {
     class SerialTransceiver
     {
@@ -57,6 +57,25 @@ namespace uwrt_gyro
             initialized,
             twoStopBits,
             parityBit;
+    };
+
+
+    class LinuxUDPTransceiver : public SerialTransceiver
+    {
+        public:
+        LinuxUDPTransceiver() = default;
+        LinuxUDPTransceiver(const std::string& address, int port, bool allowAddrReuse=false);
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) const override;
+        void deinit(void) override;
+
+        private:
+        const std::string address;
+        const int port;
+        const bool allowAddrReuse;
+        int sock;
     };
 
     #endif

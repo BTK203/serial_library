@@ -1,6 +1,6 @@
 #include "serial_library/serial_library.hpp"
 
-namespace uwrt_gyro
+namespace serial_library
 {
     char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle)
     {
