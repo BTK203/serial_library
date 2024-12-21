@@ -25,7 +25,7 @@ bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, Time startTime)
 void Type1SerialProcessorTest::SetUp() 
 {
     LinuxTransceiverTest::SetUp();
-    transceiver = serial_library::LinuxSerialTransceiver(
+    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
         homeDir() + "virtualsp1",
         9600,
         0, 
@@ -44,7 +44,7 @@ void Type1SerialProcessorTest::SetUp()
 
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
-        transceiver, 
+        std::move(transceiver), 
         frameMap,
         Type1SerialFrames1::TYPE_1_FRAME_1, 
         syncValue, 
@@ -61,7 +61,7 @@ void Type1SerialProcessorTest::TearDown()
 void Type2SerialProcessorTest::SetUp() 
 {
     LinuxTransceiverTest::SetUp();
-    transceiver = serial_library::LinuxSerialTransceiver(
+    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
         homeDir() + "virtualsp1",
         9600,
         0,
@@ -105,7 +105,7 @@ void Type2SerialProcessorTest::SetUp()
 
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
-        transceiver,
+        std::move(transceiver),
         frameMap,
         Type1SerialFrames1::TYPE_1_FRAME_1,
         syncValue,

@@ -47,7 +47,7 @@ class Type1SerialProcessorTest : public LinuxSerialProcessorTest
     void TearDown() override;
 
     SerialFramesMap frameMap;
-    serial_library::LinuxSerialTransceiver transceiver;
+    std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
     serial_library::SerialProcessor::SharedPtr processor;
 };
 
@@ -75,7 +75,7 @@ class Type2SerialProcessorTest : public LinuxSerialProcessorTest
     void TearDown() override;
 
     SerialFramesMap frameMap;
-    serial_library::LinuxSerialTransceiver transceiver;
+    std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
 };
 
 #endif

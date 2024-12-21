@@ -129,7 +129,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2)
 TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2)
 {
     //create another processor to recv
-    serial_library::LinuxSerialTransceiver sender(
+    std::unique_ptr<serial_library::LinuxSerialTransceiver> sender = std::make_unique<serial_library::LinuxSerialTransceiver>(
         homeDir() + "/virtualsp2",
         9600,
         1,
@@ -137,7 +137,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2)
     
     const char syncValue[1] = {'A'};
     serial_library::SerialProcessor senderProcessor(
-        sender,
+        std::move(sender),
         frameMap,
         Type1SerialFrames1::TYPE_1_FRAME_1,
         syncValue,
@@ -197,7 +197,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2)
 
 TEST(GenericType2SerialProcessorTest, TestConstructorSyncValueAssertions)
 {
-    TestTransceiver trans(true);
+    std::unique_ptr<TestTransceiver> trans = std::make_unique<TestTransceiver>(true);
     SerialFramesMap goodFrames = {
         {Type2SerialFrames1::TYPE_2_FRAME_1,
             {
@@ -209,7 +209,7 @@ TEST(GenericType2SerialProcessorTest, TestConstructorSyncValueAssertions)
         }
     };
 
-    ASSERT_NO_THROW(serial_library::SerialProcessor proc(trans, goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ba", 2));
+    ASSERT_NO_THROW(serial_library::SerialProcessor proc(std::move(trans), goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ba", 2));
     
     SerialFramesMap nonContinuousSyncFrames = {
         {Type2SerialFrames1::TYPE_2_FRAME_1,
@@ -222,24 +222,27 @@ TEST(GenericType2SerialProcessorTest, TestConstructorSyncValueAssertions)
         }
     };
 
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, nonContinuousSyncFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(trans), nonContinuousSyncFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
     
     //sync too long
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "abc", 3),
+        serial_library::SerialProcessor proc(std::move(trans), goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "abc", 3),
         SerialLibraryException);
     
     //sync too short
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "abc", 3),
+        serial_library::SerialProcessor proc(std::move(trans), goodFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "abc", 3),
         SerialLibraryException);
 }
 
 TEST(GenericType2SerialProcessorTest, TestConstructorFrameValueAssertions)
 {
-    TestTransceiver trans(true);
+    std::unique_ptr<TestTransceiver> trans = std::make_unique<TestTransceiver>(true);
 
     //good frames
     SerialFramesMap frames = {
@@ -255,11 +258,12 @@ TEST(GenericType2SerialProcessorTest, TestConstructorFrameValueAssertions)
 
     //control frame
     ASSERT_NO_THROW(
-        serial_library::SerialProcessor proc(trans, frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2));
+        serial_library::SerialProcessor proc(std::move(trans), frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2));
 
     //bad default frame
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, frames, Type2SerialFrames1::TYPE_2_FRAME_2, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(trans), frames, Type2SerialFrames1::TYPE_2_FRAME_2, "ab", 2),
         SerialLibraryException);
 
     //misaligned frames
@@ -282,8 +286,9 @@ TEST(GenericType2SerialProcessorTest, TestConstructorFrameValueAssertions)
         }
     };
 
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, misalignedSyncFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(trans), misalignedSyncFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
 
     SerialFramesMap misalignedFrameFrames = {
@@ -305,8 +310,9 @@ TEST(GenericType2SerialProcessorTest, TestConstructorFrameValueAssertions)
         }
     };
 
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, misalignedFrameFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(trans), misalignedFrameFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
     
     //multiple frames but no frame field
@@ -329,14 +335,15 @@ TEST(GenericType2SerialProcessorTest, TestConstructorFrameValueAssertions)
         }
     };
 
+    trans = std::make_unique<TestTransceiver>(true);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(trans, missingFrameFieldFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(trans), missingFrameFieldFrames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
 }
 
 TEST(GenericType2SerialProcessorTest, TestConstructorTransceiverInitFailed)
 {
-    TestTransceiver goodTrans(true);
+    std::unique_ptr<TestTransceiver> goodTrans = std::make_unique<TestTransceiver>(true);
 
     //good frames
     SerialFramesMap frames = {
@@ -352,12 +359,12 @@ TEST(GenericType2SerialProcessorTest, TestConstructorTransceiverInitFailed)
 
     //control
     ASSERT_NO_THROW(
-        serial_library::SerialProcessor proc(goodTrans, frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2));
+        serial_library::SerialProcessor proc(std::move(goodTrans), frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2));
     
     //bad transceiver
-    TestTransceiver badTrans(false);
+    std::unique_ptr<TestTransceiver> badTrans = std::make_unique<TestTransceiver>(false);
     ASSERT_THROW(
-        serial_library::SerialProcessor proc(badTrans, frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
+        serial_library::SerialProcessor proc(std::move(badTrans), frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
 }
 

@@ -2,8 +2,8 @@
 
 namespace serial_library
 {
-    SerialProcessor::SerialProcessor(SerialTransceiver& transceiver, SerialFramesMap frames, SerialFrameId defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker)
-     : transceiver(transceiver),
+    SerialProcessor::SerialProcessor(std::unique_ptr<SerialTransceiver> transceiver, const SerialFramesMap& frames, const SerialFrameId& defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker)
+     : transceiver(std::move(transceiver)),
        failedOfLastTen(0),
        failedOfLastTenCounter(0),
        totalOfLastTenCounter(0),
@@ -13,9 +13,9 @@ namespace serial_library
        defaultFrame(defaultFrame),
        checker(checker),
        newMsgFunc(nullptr),
-       valueMap(new SerialValuesMap())
+       valueMap(std::make_unique<SerialValuesMap>())
     {
-        SERIAL_LIB_ASSERT(transceiver.init(), "Transceiver initialization failed!");
+        SERIAL_LIB_ASSERT(this->transceiver->init(), "Transceiver initialization failed!");
 
         memcpy(this->syncValue, syncValue, syncValueLen);
         
@@ -34,9 +34,9 @@ namespace serial_library
         SerialData syncData = serialDataFromString(syncValue, syncValueLen);
         SerialDataStamped syncDataStamped;
         syncDataStamped.data = syncData;
-        SerialValuesMap *values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
         values->insert( {FIELD_SYNC, syncDataStamped} );
-        valueMap.unlockResource();
+        valueMap.unlockResource(std::move(values));
         
         SERIAL_LIB_ASSERT(frames.size() > 0, "Must have at least one frame");
         SERIAL_LIB_ASSERT(frames.find(defaultFrame) != frames.end(), "Default frame must be contained within frames");
@@ -46,8 +46,6 @@ namespace serial_library
         size_t syncFieldLoc = syncFieldIt - frames.at(0).begin();
 
         auto frameFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_FRAME);
-        // bool containsFrameField = frameFieldIt != frames.at(0).end();
-        // SERIAL_LIB_ASSERT(containsFrameField || frames.size() == 1 , "Field 0 does not contain a frame field, but multiple frames are used!");
         size_t frameFieldLoc = frameFieldIt - frames.at(0).begin();
 
         for(size_t i = 0; i < frames.size(); i++)
@@ -80,12 +78,11 @@ namespace serial_library
 
     SerialProcessor::~SerialProcessor()
     {
-        transceiver.deinit();
-        delete valueMap.lockResource();
+        transceiver->deinit();
     }
 
 
-    void SerialProcessor::setNewMsgCallback(NewMsgFunc func)
+    void SerialProcessor::setNewMsgCallback(const NewMsgFunc& func)
     {
         this->newMsgFunc = func;
     }
@@ -94,7 +91,7 @@ namespace serial_library
     void SerialProcessor::update(const Time& now)
     {
         //TODO can probably rewrite method and use SERIAL_LIB_ASSERT
-        size_t recvd = transceiver.recv(transmissionBuffer, PROCESSOR_BUFFER_SIZE);
+        size_t recvd = transceiver->recv(transmissionBuffer, PROCESSOR_BUFFER_SIZE);
         if(recvd == 0)
         {
             return;
@@ -185,17 +182,17 @@ namespace serial_library
                 //iterate through frame and find all unknown fields
                 for(auto it = frameToUse.begin(); it != frameToUse.end(); it++)
                 {
-                    SerialValuesMap *values = valueMap.lockResource();
+                    std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
                     if(values->find(*it) == values->end())
                     {
                         values->insert({ *it, SerialDataStamped() });
                     }
 
-                    valueMap.unlockResource();
+                    valueMap.unlockResource(std::move(values));
                 }
 
                 //iterate through known fields and update their values from message
-                SerialValuesMap *values = valueMap.lockResource();
+                std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
                 for(auto it = values->begin(); it != values->end(); it++)
                 {
                     memset(fieldBuf, 0, sizeof(fieldBuf));
@@ -212,7 +209,7 @@ namespace serial_library
                     }
                 }
 
-                valueMap.unlockResource();
+                valueMap.unlockResource(std::move(values));
                 
                 //call new message function
                 if(newMsgFunc)
@@ -251,30 +248,30 @@ namespace serial_library
     
     bool SerialProcessor::hasDataForField(SerialFieldId field)
     {
-        SerialValuesMap *values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
         bool hasData = values->find(field) != values->end();
-        valueMap.unlockResource();
+        valueMap.unlockResource(std::move(values));
         return hasData;
     }
     
     
     SerialDataStamped SerialProcessor::getField(SerialFieldId field)
     {
-        SerialValuesMap *values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
         SerialDataStamped data;
         if(values->find(field) != values->end())
         {
             data = values->at(field);
         }
 
-        valueMap.unlockResource();
+        valueMap.unlockResource(std::move(values));
         return data;
     }
     
     
     void SerialProcessor::setField(SerialFieldId field, SerialData data, const Time& now)
     {
-        SerialValuesMap *values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
         if(values->find(field) == values->end())
         {
             //no field currently set, so add one
@@ -285,7 +282,7 @@ namespace serial_library
         stampedData.data = data;
         stampedData.timestamp = now;
         values->at(field) = stampedData;
-        valueMap.unlockResource();
+        valueMap.unlockResource(std::move(values));
     }
     
     
@@ -303,7 +300,7 @@ namespace serial_library
         for(auto fieldIt = frameSet.begin(); fieldIt != frameSet.end(); fieldIt++)
         {
             SerialData dataToInsert;
-            SerialValuesMap *values = valueMap.lockResource();
+            std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
             if(values->find(*fieldIt) != values->end())
             {
                 dataToInsert = values->at(*fieldIt).data;
@@ -320,7 +317,7 @@ namespace serial_library
                 } else
                 {
                     //if it is a custom type, throw exception because it is undefined
-                    valueMap.unlockResource();
+                    valueMap.unlockResource(std::move(values));
                     THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Cannot send serial frame because it is missing field " + to_string(*fieldIt));
                 }
             }
@@ -333,10 +330,10 @@ namespace serial_library
                 dataToInsert.data,
                 dataToInsert.numData);
             
-            valueMap.unlockResource();
+            valueMap.unlockResource(std::move(values));
         }
 
-        transceiver.send(transmissionBuffer, frame.size());
+        transceiver->send(transmissionBuffer, frame.size());
     }
 
     unsigned short SerialProcessor::failedOfLastTenMessages()

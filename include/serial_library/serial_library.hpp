@@ -17,6 +17,11 @@ namespace serial_library
     class SerialTransceiver
     {
         public:
+        #if defined(USE_LINUX)
+        typedef std::shared_ptr<SerialTransceiver> SharedPtr;
+        typedef std::unique_ptr<SerialTransceiver> UniquePtr;
+        #endif
+
         virtual bool init(void) = 0;
         virtual void send(const char *data, size_t numData) const = 0;
         virtual size_t recv(char *data, size_t numData) const = 0;
@@ -166,23 +171,24 @@ namespace serial_library
     class ProtectedResource
     {
         public:
-        ProtectedResource(T resource)
-        : resource(resource) { }
+        ProtectedResource(std::unique_ptr<T> resource)
+        : resource(std::move(resource)) { }
 
-        T& lockResource()
+        std::unique_ptr<T> lockResource()
         {
             lock.lock();
-            return resource;
+            return std::move(resource);
         }
 
-        void unlockResource()
+        void unlockResource(std::unique_ptr<T> resource)
         {
+            this->resource = std::move(resource);
             lock.unlock();
         }
 
         private:
         mutex lock;
-        T resource;
+        std::unique_ptr<T> resource;
     };
 
 
@@ -197,12 +203,13 @@ namespace serial_library
         public:
         #if defined(USE_LINUX)
         typedef std::shared_ptr<SerialProcessor> SharedPtr;
+        typedef std::unique_ptr<SerialProcessor> UniquePtr;
         #endif
 
         SerialProcessor() = default;
-        SerialProcessor(SerialTransceiver& transceiver, SerialFramesMap frames, SerialFrameId defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker = &defaultCheckFunc);
+        SerialProcessor(std::unique_ptr<SerialTransceiver> transceiver, const SerialFramesMap& frames, const SerialFrameId& defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker = &defaultCheckFunc);
         ~SerialProcessor();
-        void setNewMsgCallback(NewMsgFunc func);
+        void setNewMsgCallback(const NewMsgFunc& func);
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
         SerialDataStamped getField(SerialFieldId field);
@@ -212,7 +219,7 @@ namespace serial_library
 
         private:
         // regular member vars
-        SerialTransceiver& transceiver;
+        std::unique_ptr<SerialTransceiver> transceiver;
         char 
             msgBuffer[PROCESSOR_BUFFER_SIZE],
             transmissionBuffer[PROCESSOR_BUFFER_SIZE],
@@ -230,9 +237,9 @@ namespace serial_library
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;
         const CheckFunc checker;
-        NewMsgFunc newMsgFunc;
+        NewMsgFunc newMsgFunc; // non-const becuase this can be set with a function
         
         // "thread-safe" resources 
-        ProtectedResource<SerialValuesMap*> valueMap;
+        ProtectedResource<SerialValuesMap> valueMap;
     };
 }
