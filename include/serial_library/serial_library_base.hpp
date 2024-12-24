@@ -119,20 +119,11 @@ namespace serial_library
     //
     // exception
     //
-    class SerialLibraryException
+    class SerialLibraryException : public std::runtime_error
     {
         public:
         SerialLibraryException(const string& error)
-        : error(error)
-        { }
-
-        string what()
-        {
-            return error;
-        }
-
-        private:
-        string error;
+        : std::runtime_error(error.c_str()) { }
     };
 
     class NonFatalSerialLibraryException : public SerialLibraryException
@@ -172,6 +163,7 @@ namespace serial_library
 
     typedef uint8_t SerialFrameId;
     typedef int SerialFieldId;
+    typedef checksum_t Checksum;
 
     //describes the fields held by a serial frame. Each frame represents 8 bits.
     typedef vector<SerialFieldId> SerialFrame;

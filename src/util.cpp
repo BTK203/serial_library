@@ -85,9 +85,9 @@ namespace serial_library
         auto it = frame.begin();
         size_t newBufLen = bufLen;
 
-        if(bufLen != frame.size())
+        if(bufLen < frame.size())
         {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not the same as the frame length");
+            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not the same as or bigger than the frame length");
         }
 
         while(it != frame.end())

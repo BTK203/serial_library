@@ -204,7 +204,7 @@ namespace serial_library
     { }
 
 
-    static bool defaultChecksumEvaluationFunc(const char* msg, size_t len, checksum_t checksum)
+    static bool defaultChecksumEvaluationFunc(const char* msg, size_t len, Checksum checksum)
     {
         return true;
     }

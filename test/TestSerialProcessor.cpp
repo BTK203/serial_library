@@ -128,35 +128,6 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2)
     ASSERT_TRUE(compareSerialData(processor->getField(TYPE_2_FIELD_6).data, serial_library::serialDataFromString("dz", 2)));
 }
 
-TEST_F(Type2SerialProcessorTest, TestNewMsgCallback)
-{
-    serial_library::LinuxSerialTransceiver client(
-        homeDir() + "virtualsp2",
-        9600,
-        1,
-        0);
-    
-    client.init();
-
-    //define messages (to be sent in increasing order)
-    const char msg1[] = {'A', 'a', 0, 'b', 'c', 'A', 'd', 'e'};
-    
-    Time now = curtime();
-
-    client.send(msg1, sizeof(msg1));
-    processor->update(now);
-
-    ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
-    // ASSERT_TRUE(strcmp(processor->getField(FIELD_SYNC).data.data, "A") == 0);
-    SerialDataStamped data = processor->getField(FIELD_FRAME);
-    int frameId = serial_library::convertFromCString<int>(data.data.data, data.data.numData);
-    ASSERT_EQ(frameId, 0);
-
-    ASSERT_TRUE(compareSerialData(processor->getField(TYPE_2_FIELD_1).data, serial_library::serialDataFromString("a", 1)));
-    ASSERT_TRUE(compareSerialData(processor->getField(TYPE_2_FIELD_2).data, serial_library::serialDataFromString("bcd", 3)));
-    ASSERT_TRUE(compareSerialData(processor->getField(TYPE_2_FIELD_3).data, serial_library::serialDataFromString("e", 1)));
-}
-
 TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2)
 {
     //create another processor to recv
@@ -267,6 +238,47 @@ TEST_F(CallbacksTest, TestMsgReceivedCallback)
     ASSERT_TRUE(memcmp(field.data.data, "234", field.data.numData) == 0);
     field = received[TYPE_2_FIELD_3];
     ASSERT_TRUE(memcmp(field.data.data, "5", field.data.numData) == 0);
+}
+
+TEST_F(CallbacksTest, TestChecksumEvaluatorCallback)
+{
+    //create another processor to recv
+    std::unique_ptr<serial_library::LinuxSerialTransceiver> sender = std::make_unique<serial_library::LinuxSerialTransceiver>(
+        homeDir() + "/virtualsp2",
+        9600,
+        1,
+        0);
+    
+    const char syncValue[1] = {'A'};
+    serial_library::SerialProcessor senderProcessor(
+        std::move(sender),
+        TYPE_2_FRAME_MAP,
+        Type2SerialFrames1::TYPE_2_FRAME_1,
+        syncValue,
+        sizeof(syncValue),
+        getCallbacks());
+    
+    //test sending frame 1
+    Time now = curtime();
+    senderProcessor.setField(TYPE_2_FIELD_5, serial_library::serialDataFromString("pq", 2), now);
+    senderProcessor.setField(TYPE_2_FIELD_6, serial_library::serialDataFromString("3", 3), now);
+
+    senderProcessor.send(TYPE_2_CHECKSUM_FRAME);
+    senderProcessor.send(TYPE_2_CHECKSUM_FRAME);
+
+    ASSERT_TRUE(waitForFrame(TYPE_2_FIELD_5, now));
+    ASSERT_TRUE(waitForFrame(TYPE_2_FIELD_6, now));
+
+    // TYPE_2_FIELD_5,
+    // FIELD_FRAME,
+    // FIELD_CHECKSUM,
+    // FIELD_CHECKSUM,
+    // FIELD_SYNC,
+    // TYPE_2_FIELD_6,
+    // TYPE_2_FIELD_5
+
+    serial_library::Checksum expectedSum = 'p' + TYPE_2_CHECKSUM_FRAME + 'A' + '3' + 'q';
+    ASSERT_EQ(expectedSum, lastComputedChecksum());
 }
 
 TEST(GenericType2SerialProcessorTest, TestConstructorSyncValueAssertions)

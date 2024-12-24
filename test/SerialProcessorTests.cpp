@@ -7,7 +7,7 @@ using namespace serial_library;
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
-bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, Time startTime)
+bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, const Time& startTime)
 {
     Time now = curtime();
     while(now - startTime < 500ms)
@@ -89,6 +89,8 @@ void Type2SerialProcessorTest::TearDown()
 
 void CallbacksTest::SetUp() 
 {
+    lastChecksum = 0;
+
     LinuxTransceiverTest::SetUp();
     transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
         homeDir() + "virtualsp1",
@@ -96,11 +98,6 @@ void CallbacksTest::SetUp()
         0,
         1);
     
-    SerialProcessorCallbacks callbacks;
-    callbacks.newMessageCallback = std::bind(&CallbacksTest::newMsgCallback, this, _1);
-    callbacks.checksumEvaluationFunc = std::bind(&CallbacksTest::checksumEvaluator, this, _1, _2, _3);
-    callbacks.checksumGenerationFunc = std::bind(&CallbacksTest::checksumGenerator, this, _1, _2);
-
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
         std::move(transceiver),
@@ -108,7 +105,7 @@ void CallbacksTest::SetUp()
         Type1SerialFrames1::TYPE_1_FRAME_1,
         syncValue,
         sizeof(syncValue),
-        callbacks);
+        getCallbacks());
 }
 
 
@@ -124,13 +121,29 @@ SerialValuesMap CallbacksTest::lastReceivedSerialFrames() const
 }
 
 
+serial_library::Checksum CallbacksTest::lastComputedChecksum() const
+{
+    return lastChecksum;
+}
+
+
+serial_library::SerialProcessorCallbacks CallbacksTest::getCallbacks()
+{
+    SerialProcessorCallbacks callbacks;
+    callbacks.newMessageCallback = std::bind(&CallbacksTest::newMsgCallback, this, _1);
+    callbacks.checksumEvaluationFunc = std::bind(&CallbacksTest::checksumEvaluator, this, _1, _2, _3);
+    callbacks.checksumGenerationFunc = std::bind(&CallbacksTest::checksumGenerator, this, _1, _2);
+    return callbacks;
+}
+
+
 void CallbacksTest::newMsgCallback(const SerialValuesMap& frames)
 {
     lastReceivedMap = frames;
 }
 
 // checksum is good if sum of the characters equals the checksum
-bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, checksum_t checksum)
+bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, serial_library::Checksum checksum)
 {
     unsigned int sum = 0;
     for(unsigned int i = 0; i < len; i++)
@@ -138,13 +151,20 @@ bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, checksum_t ch
         sum += msg[i];
     }
 
-    return sum % 2 == 0;
+    return sum == checksum;
 }
 
 
-uint16_t CallbacksTest::checksumGenerator(const char* msg, size_t len)
+serial_library::Checksum CallbacksTest::checksumGenerator(const char* msg, size_t len)
 {
+    serial_library::Checksum sum = 0;
+    for(unsigned int i = 0; i < len; i++)
+    {
+        sum += msg[i];
+    }
 
+    lastChecksum = sum;
+    return sum;
 }
 
 #endif

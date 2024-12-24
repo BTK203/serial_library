@@ -21,7 +21,7 @@ class LinuxTransceiverTest : public ::testing::Test
 class LinuxSerialProcessorTest : public LinuxTransceiverTest
 {
     protected:
-    bool waitForFrame(serial_library::SerialFrameId id, serial_library::Time startTime);
+    bool waitForFrame(serial_library::SerialFrameId id, const serial_library::Time& now);
     serial_library::SerialProcessor::SharedPtr processor;
 };
 
@@ -55,7 +55,8 @@ enum Type2SerialFrames1
 {
     TYPE_2_FRAME_1,
     TYPE_2_FRAME_2,
-    TYPE_2_FRAME_3
+    TYPE_2_FRAME_3,
+    TYPE_2_CHECKSUM_FRAME
 };
 
 enum Type2SerialFields
@@ -101,6 +102,17 @@ static serial_library::SerialFramesMap TYPE_2_FRAME_MAP = {
                 TYPE_2_FIELD_5,
                 TYPE_2_FIELD_6
             }
+        },
+        {Type2SerialFrames1::TYPE_2_CHECKSUM_FRAME, 
+            {
+                TYPE_2_FIELD_5,
+                FIELD_FRAME,
+                FIELD_CHECKSUM,
+                FIELD_CHECKSUM,
+                FIELD_SYNC,
+                TYPE_2_FIELD_6,
+                TYPE_2_FIELD_5
+            }
         }
     };
 
@@ -122,14 +134,17 @@ class CallbacksTest : public LinuxSerialProcessorTest
     void TearDown() override;
 
     serial_library::SerialValuesMap lastReceivedSerialFrames() const;
+    serial_library::Checksum lastComputedChecksum() const;
+    serial_library::SerialProcessorCallbacks getCallbacks();
 
     private:
     void newMsgCallback(const serial_library::SerialValuesMap& frames);
-    bool checksumEvaluator(const char *msg, size_t len, serial_library::checksum_t checksum);
+    bool checksumEvaluator(const char *msg, size_t len, serial_library::Checksum checksum);
     uint16_t checksumGenerator(const char* msg, size_t len);
 
     serial_library::SerialValuesMap lastReceivedMap;
     std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
+    serial_library::Checksum lastChecksum;
 };
 
 #endif

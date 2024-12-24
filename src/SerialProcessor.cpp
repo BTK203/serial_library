@@ -35,9 +35,9 @@ namespace serial_library
             }
 
             size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
-            if(numChecksumBytes != 0 && numChecksumBytes != sizeof(checksum_t))
+            if(numChecksumBytes != 0 && numChecksumBytes != sizeof(Checksum))
             {
-                THROW_FATAL_SERIAL_LIB_EXCEPTION("Support for non-" + to_string(sizeof(checksum_t) * 8) + "-bit checksums is not implemented yet.");
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("Support for non-" + to_string(sizeof(Checksum) * 8) + "-bit checksums is not implemented yet.");
             }
         }
 
@@ -106,7 +106,7 @@ namespace serial_library
         size_t bytesToCopy = recvd;
         if(msgBufferCursorPos + recvd > PROCESSOR_BUFFER_SIZE)
         {
-            bytesToCopy = -msgBufferCursorPos + PROCESSOR_BUFFER_SIZE;
+            bytesToCopy = PROCESSOR_BUFFER_SIZE - msgBufferCursorPos;
         }
 
         memcpy(&msgBuffer[msgBufferCursorPos], transmissionBuffer, bytesToCopy);
@@ -121,8 +121,6 @@ namespace serial_library
             {
                 return;
             }
-
-            size_t msgSz = msgBufferCursorPos + (size_t) msgBuffer - (size_t) syncLocation;
 
             // can process message here. first need to figure out the frame to use.
             // if there was only one frame provided, this is easy. otherwise, need to look for indication in the message
@@ -158,7 +156,7 @@ namespace serial_library
             if(frameMapSz > 1)
             {
                 char frameIdBuf[MAX_DATA_BYTES] = {0};
-                size_t bytes = extractFieldFromBuffer(msgStart, msgSz, frameToUse, FIELD_FRAME, frameIdBuf, MAX_DATA_BYTES);
+                size_t bytes = extractFieldFromBuffer(msgStart, msgBufferCursorPos, frameToUse, FIELD_FRAME, frameIdBuf, MAX_DATA_BYTES);
                 if(bytes > 0)
                 {
                     SerialFrameId frameId = convertFromCString<SerialFrameId>(frameIdBuf, bytes);
@@ -180,20 +178,20 @@ namespace serial_library
                     }
                 }
             }
-            
+
             bool msgPassesUserTest = true;
             if(set<SerialFieldId>(frameToUse.begin(), frameToUse.end()).count(FIELD_CHECKSUM) > 0)
             {
                 //grab checksum out of message
-                size_t csLen = extractFieldFromBuffer(msgStart, msgSz, frameToUse, FIELD_CHECKSUM, fieldBuf, sizeof(fieldBuf));
-                checksum_t checksum = convertFromCString<checksum_t>(fieldBuf, csLen);
+                size_t csLen = extractFieldFromBuffer(msgStart, msgBufferCursorPos, frameToUse, FIELD_CHECKSUM, fieldBuf, sizeof(fieldBuf));
+                Checksum checksum = convertFromCString<Checksum>(fieldBuf, csLen);
 
                 //remove checksum from message
-                memcpy(checksumlessBuffer, msgStart, msgSz);
-                size_t cslBufLen = deleteChecksumFromBuffer(checksumlessBuffer, msgSz, frameToUse);
+                memcpy(checksumlessBuffer, msgStart, msgBufferCursorPos);
+                deleteChecksumFromBuffer(checksumlessBuffer, msgBufferCursorPos, frameToUse);
 
                 //pass edited message to user function to evaluate checksum
-                msgPassesUserTest = callbacks.checksumEvaluationFunc(checksumlessBuffer, cslBufLen, checksum);
+                msgPassesUserTest = callbacks.checksumEvaluationFunc(checksumlessBuffer, frameToUse.size() - sizeof(Checksum), checksum);
             }
 
             if(msgStartOffsetFromSync <= syncOffsetFromBuffer && msgPassesUserTest && hasFrameToUse)
@@ -333,7 +331,7 @@ namespace serial_library
                 } else if(*fieldIt == FIELD_FRAME)
                 {
                     dataToInsert.numData = convertToCString<SerialFrameId>(frameId, dataToInsert.data, MAX_DATA_BYTES);
-                } else
+                } else if(*fieldIt != FIELD_CHECKSUM)
                 {
                     //if it is a custom type, throw exception because it is undefined
                     valueMap.unlockResource(std::move(values));
@@ -357,11 +355,11 @@ namespace serial_library
         {
             //fill checksum buffer with contents of transmission buffer
             memcpy(checksumlessBuffer, transmissionBuffer, sizeof(transmissionBuffer));
-            size_t checksumBufSz = deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
-            checksum_t checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, checksumBufSz);
+            deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
+            Checksum checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, frame.size() - sizeof(Checksum));
             
             //fill checksum buffer with encoded checksum
-            size_t checksumLen = convertToCString<checksum_t>(checksum, checksumlessBuffer, sizeof(checksumlessBuffer));
+            size_t checksumLen = convertToCString<Checksum>(checksum, checksumlessBuffer, sizeof(checksumlessBuffer));
 
             insertFieldToBuffer(
                 transmissionBuffer,
@@ -371,7 +369,6 @@ namespace serial_library
                 checksumlessBuffer,
                 checksumLen);
         }
-
 
         transceiver->send(transmissionBuffer, frame.size());
     }
