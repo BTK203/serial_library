@@ -115,7 +115,15 @@ namespace serial_library
     char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle);
     size_t extractFieldFromBuffer(const char *src, size_t srcLen, SerialFrame frame, SerialFieldId field, char *dst, size_t dstLen);
     void insertFieldToBuffer(char *dst, size_t dstLen, SerialFrame frame, SerialFieldId field, const char *src, size_t srcLen);
+    size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
+    size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
     SerialData serialDataFromString(const char *str, size_t numData);
+    SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
+    
+    size_t countInString(const std::string& s, char c);
+
+    typedef pair<SerialFrameId, size_t> SerialFrameComponent;
+    SerialFrame assembleSerialFrame(const std::vector<SerialFrameComponent>& components);
     
     // "normalized" in this case means that the frame starts with a sync, makes processing easier
     SerialFrame normalizeSerialFrame(const SerialFrame& frame);
@@ -192,10 +200,30 @@ namespace serial_library
     };
 
 
-    static bool defaultCheckFunc(const char*, const SerialFrame&)
+    static void defaultNewMessageCallback(const SerialValuesMap& map)
+    { }
+
+
+    static bool defaultChecksumEvaluationFunc(const char* msg, size_t len, checksum_t checksum)
     {
         return true;
     }
+
+
+    static uint16_t defaultChecksumGeneratorFunc(const char *msgStart, size_t len)
+    {
+        return 0;
+    }
+
+
+    struct SerialProcessorCallbacks
+    {
+        NewMsgFunc newMessageCallback = &defaultNewMessageCallback;
+        ChecksumEvaluator checksumEvaluationFunc = &defaultChecksumEvaluationFunc;
+        ChecksumGenerator checksumGenerationFunc = &defaultChecksumGeneratorFunc;
+    };
+
+    const SerialProcessorCallbacks DEFAULT_CALLBACKS;
 
 
     class SerialProcessor
@@ -207,13 +235,29 @@ namespace serial_library
         #endif
 
         SerialProcessor() = default;
-        SerialProcessor(std::unique_ptr<SerialTransceiver> transceiver, const SerialFramesMap& frames, const SerialFrameId& defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker = &defaultCheckFunc);
+        SerialProcessor(
+            std::unique_ptr<SerialTransceiver> transceiver,
+            const SerialFramesMap& frames,
+            const SerialFrameId& defaultFrame,
+            const char syncValue[],
+            size_t syncValueLen,
+            const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS);
+        
         ~SerialProcessor();
-        void setNewMsgCallback(const NewMsgFunc& func);
+
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
         SerialDataStamped getField(SerialFieldId field);
         void setField(SerialFieldId field, SerialData data, const Time& now);
+
+        template<typename T>
+        void setField(SerialFieldId field, const T& val, const Time& now)
+        {
+            SerialData data;
+            data.numData = convertToCString(val, data.data, sizeof(T));
+            setField(field, data, now);
+        }
+
         void send(SerialFrameId frameId);
         unsigned short failedOfLastTenMessages();
 
@@ -223,6 +267,7 @@ namespace serial_library
         char 
             msgBuffer[PROCESSOR_BUFFER_SIZE],
             transmissionBuffer[PROCESSOR_BUFFER_SIZE],
+            checksumlessBuffer[PROCESSOR_BUFFER_SIZE],
             fieldBuf[PROCESSOR_BUFFER_SIZE];
         
         unsigned short 
@@ -236,8 +281,7 @@ namespace serial_library
 
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;
-        const CheckFunc checker;
-        NewMsgFunc newMsgFunc; // non-const becuase this can be set with a function
+        const SerialProcessorCallbacks callbacks;
         
         // "thread-safe" resources 
         ProtectedResource<SerialValuesMap> valueMap;

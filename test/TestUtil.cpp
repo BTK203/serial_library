@@ -1,6 +1,7 @@
 #include "serial_library/serial_library.hpp"
 #include "serial_library/testing.hpp"
 
+using namespace serial_library;
 
 TEST(UtilTest, testMemstr)
 {
@@ -129,25 +130,25 @@ TEST_F(Type2SerialProcessorTest, testExtractFieldFromBufferAdvanced)
     char dst[5] = {0};
 
     //1-char extraction of type 2 frame 1 field 1 into bigger buffer (expect "a")
-    size_t result = serial_library::extractFieldFromBuffer(testMsg1, sizeof(testMsg1), frameMap[0], TYPE_2_FIELD_1, dst, sizeof(dst));
+    size_t result = serial_library::extractFieldFromBuffer(testMsg1, sizeof(testMsg1), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_1, dst, sizeof(dst));
     ASSERT_EQ(result, 1u);
     ASSERT_TRUE(memcmp(dst, "A", 1) == 0);
 
     //3-char extraction of type 2 frame 1 field 2 in sequential order (expect "bcd")
-    result = serial_library::extractFieldFromBuffer(testMsg1, sizeof(testMsg1), frameMap[0], TYPE_2_FIELD_2, dst, sizeof(dst));
+    result = serial_library::extractFieldFromBuffer(testMsg1, sizeof(testMsg1), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_2, dst, sizeof(dst));
     ASSERT_EQ(result, 3u);
     ASSERT_TRUE(memcmp(dst, "1bd", 3) == 0);
 
     const char *testMsg2 = "a2bcdeA";
 
     //3-char extraction of type 2 frame 1 field 2 (disjointed, expect "abe")
-    result = serial_library::extractFieldFromBuffer(testMsg2, sizeof(testMsg2), frameMap[1], TYPE_2_FIELD_2, dst, sizeof(dst));
+    result = serial_library::extractFieldFromBuffer(testMsg2, sizeof(testMsg2), TYPE_2_FRAME_MAP[1], TYPE_2_FIELD_2, dst, sizeof(dst));
     ASSERT_EQ(result, 3u);
     ASSERT_TRUE(memcmp(dst, "abA", 3) == 0);
 
     //3-char extraction of type 2 frame 1 field 2 (disjointed, expect "abe"), into smaller buffer (expect "ab")
     dst[2] = 'M'; //this tests that this character wasnt touched
-    result = serial_library::extractFieldFromBuffer(testMsg2, sizeof(testMsg2), frameMap[1], TYPE_2_FIELD_2, dst, sizeof(dst) - 1);
+    result = serial_library::extractFieldFromBuffer(testMsg2, sizeof(testMsg2), TYPE_2_FRAME_MAP[1], TYPE_2_FIELD_2, dst, sizeof(dst) - 1);
     ASSERT_EQ(result, 3u);
     ASSERT_TRUE(memcmp(dst, "abM", 2) == 0);
 }
@@ -180,19 +181,86 @@ TEST_F(Type2SerialProcessorTest, testInsertFieldToBufferAdvanced)
     char dst[] = "Ab1defg";
 
     //1-char insertion of src from bigger buffer
-    serial_library::insertFieldToBuffer(dst, sizeof(dst), frameMap[0], TYPE_2_FIELD_1, src, sizeof(src));
+    serial_library::insertFieldToBuffer(dst, sizeof(dst), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_1, src, sizeof(src));
     ASSERT_TRUE(memcmp(dst, "Xb1defg", 7) == 0);
 
     //3-char insertion of src
     strcpy(dst, "Ab1defg");
-    serial_library::insertFieldToBuffer(dst, sizeof(dst), frameMap[0], TYPE_2_FIELD_2, src, sizeof(src));
+    serial_library::insertFieldToBuffer(dst, sizeof(dst), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_2, src, sizeof(src));
     ASSERT_TRUE(memcmp(dst, "AbXYeZg", 7) == 0);
 
     //3-char insertion of src
     strcpy(dst, "a1bcdeA");
-    serial_library::insertFieldToBuffer(dst, sizeof(dst), frameMap[1], TYPE_2_FIELD_2, src, sizeof(src));
+    serial_library::insertFieldToBuffer(dst, sizeof(dst), TYPE_2_FRAME_MAP[1], TYPE_2_FIELD_2, src, sizeof(src));
     ASSERT_TRUE(memcmp(dst, "X1YcdeZ", 7) == 0);
 }
+
+TEST_F(Type2SerialProcessorTest, testDeleteFieldAndShiftBuffer)
+{
+    char buf[7] = {'a', 'b', 'c', 'd', 'e', 'f', 'g'};
+
+    //1-char deletion
+    serial_library::deleteFieldAndShiftBuffer(buf, sizeof(buf), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_1);
+    ASSERT_TRUE(memcmp(buf, "bcdefg", 6) == 0);
+
+    //3-char deletion
+    memcpy(buf, "abcdefg", 7);
+    serial_library::deleteFieldAndShiftBuffer(buf, sizeof(buf), TYPE_2_FRAME_MAP[0], TYPE_2_FIELD_2);
+    ASSERT_TRUE(memcmp(buf, "abeg", 4) == 0);
+}
+
+
+TEST(UtilTest, TestAssembleSerialFrameFunction)
+{
+    SerialFrame frame = assembleSerialFrame({
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1, 1 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 1 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3, 1 }});
+    
+    SerialFrame expected1 = {
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3};
+    
+    ASSERT_EQ(frame, expected1);
+
+    frame = assembleSerialFrame({
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1, 2 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 2 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3, 2 }});
+    
+    SerialFrame expected2 = {
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3};
+    
+    ASSERT_EQ(frame, expected2);
+
+    frame = assembleSerialFrame({
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1, 2 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 2 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3, 2 },
+        SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 5 }});
+    
+    SerialFrame expected3 = {
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,
+        Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2};
+    
+    ASSERT_EQ(frame, expected3);
+}
+
 
 TEST(UtilTest, testNormalizeSerialFrame)
 {

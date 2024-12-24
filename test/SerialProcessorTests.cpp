@@ -1,8 +1,11 @@
 #include "serial_library/testing.hpp"
 
+using namespace serial_library;
+
 #if defined(USE_LINUX)
 
 using namespace std::chrono_literals;
+using namespace std::placeholders;
 
 bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, Time startTime)
 {
@@ -21,6 +24,7 @@ bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, Time startTime)
     SERLIB_LOG_INFO("Timed out waiting for frame with id %d", id);
     return false;
 }
+
 
 void Type1SerialProcessorTest::SetUp() 
 {
@@ -67,54 +71,80 @@ void Type2SerialProcessorTest::SetUp()
         0,
         1);
     
-    frameMap = {
-        {Type2SerialFrames1::TYPE_2_FRAME_1, 
-            {
-                TYPE_2_FIELD_1,
-                FIELD_FRAME,
-                TYPE_2_FIELD_2,
-                TYPE_2_FIELD_2,
-                FIELD_SYNC,
-                TYPE_2_FIELD_2,
-                TYPE_2_FIELD_3
-            }
-        },
-        {Type2SerialFrames1::TYPE_2_FRAME_2, 
-            {
-                TYPE_2_FIELD_2,
-                FIELD_FRAME,
-                TYPE_2_FIELD_2,
-                TYPE_2_FIELD_4,
-                FIELD_SYNC,
-                TYPE_2_FIELD_3,
-                TYPE_2_FIELD_2,
-            }
-        },
-        {Type2SerialFrames1::TYPE_2_FRAME_3, 
-            {
-                TYPE_2_FIELD_5,
-                FIELD_FRAME,
-                TYPE_2_FIELD_1,
-                TYPE_2_FIELD_6,
-                FIELD_SYNC,
-                TYPE_2_FIELD_5,
-                TYPE_2_FIELD_6
-            }
-        }
-    };
-
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
         std::move(transceiver),
-        frameMap,
+        TYPE_2_FRAME_MAP,
         Type1SerialFrames1::TYPE_1_FRAME_1,
         syncValue,
         sizeof(syncValue));
 }
 
+
 void Type2SerialProcessorTest::TearDown()
 {
     LinuxTransceiverTest::TearDown();
+}
+
+
+void CallbacksTest::SetUp() 
+{
+    LinuxTransceiverTest::SetUp();
+    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
+        homeDir() + "virtualsp1",
+        9600,
+        0,
+        1);
+    
+    SerialProcessorCallbacks callbacks;
+    callbacks.newMessageCallback = std::bind(&CallbacksTest::newMsgCallback, this, _1);
+    callbacks.checksumEvaluationFunc = std::bind(&CallbacksTest::checksumEvaluator, this, _1, _2, _3);
+    callbacks.checksumGenerationFunc = std::bind(&CallbacksTest::checksumGenerator, this, _1, _2);
+
+    const char syncValue[1] = {'A'};
+    processor = std::make_shared<serial_library::SerialProcessor>(
+        std::move(transceiver),
+        TYPE_2_FRAME_MAP,
+        Type1SerialFrames1::TYPE_1_FRAME_1,
+        syncValue,
+        sizeof(syncValue),
+        callbacks);
+}
+
+
+void CallbacksTest::TearDown()
+{
+    LinuxTransceiverTest::TearDown();
+}
+
+
+SerialValuesMap CallbacksTest::lastReceivedSerialFrames() const
+{
+    return lastReceivedMap;
+}
+
+
+void CallbacksTest::newMsgCallback(const SerialValuesMap& frames)
+{
+    lastReceivedMap = frames;
+}
+
+// checksum is good if sum of the characters equals the checksum
+bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, checksum_t checksum)
+{
+    unsigned int sum = 0;
+    for(unsigned int i = 0; i < len; i++)
+    {
+        sum += msg[i];
+    }
+
+    return sum % 2 == 0;
+}
+
+
+uint16_t CallbacksTest::checksumGenerator(const char* msg, size_t len)
+{
+
 }
 
 #endif

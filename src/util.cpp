@@ -79,12 +79,92 @@ namespace serial_library
         }
     }
 
+
+    size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field)
+    {
+        auto it = frame.begin();
+        size_t newBufLen = bufLen;
+
+        if(bufLen != frame.size())
+        {
+            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not the same as the frame length");
+        }
+
+        while(it != frame.end())
+        {
+            //find next location of the field in the frame
+            it = find(it, frame.end(), field);
+            if(it == frame.end())
+            {
+                break;
+            }
+
+            //the " + newBufLen - bufLen" makes algorithm robust to changes in buffer caused by removing characters
+            size_t idx = (it - frame.begin()) + newBufLen - bufLen;
+            memmove(&buf[idx], &buf[idx + 1], bufLen - idx);
+            newBufLen--;
+
+            it++;
+        }
+
+        return newBufLen;
+    }
+
+    
+    size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame)
+    {
+        return deleteFieldAndShiftBuffer(buf, bufLen, frame, FIELD_CHECKSUM);
+    }
+
+
     SerialData serialDataFromString(const char* str, size_t numData)
     {
         SerialData data;
         strcpy(data.data, str);
         data.numData = numData;
         return data;
+    }
+
+
+    SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp)
+    {
+        SerialData data = serialDataFromString(str, numData);
+        SerialDataStamped stamped;
+        stamped.data = data;
+        stamped.timestamp = stamp;
+    }
+
+
+    size_t countInString(const std::string& s, char c)
+    {
+        size_t n = 0;
+        for(char o : s)
+        {
+            if(o == c)
+            {
+                n++;
+            }
+        }
+
+        return n;
+    }
+
+
+    SerialFrame assembleSerialFrame(const std::vector<SerialFrameComponent>& components)
+    {
+        SerialFrame frame;
+        
+        for(size_t i = 0; i < components.size(); i++)
+        {
+            SerialFrameComponent comp = components.at(i);
+            SerialFrameId id = comp.first;
+            for(size_t j = 0; j < comp.second; j++)
+            {
+                frame.push_back(id);
+            }
+        }
+
+        return frame;
     }
 
 

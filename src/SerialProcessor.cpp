@@ -2,7 +2,13 @@
 
 namespace serial_library
 {
-    SerialProcessor::SerialProcessor(std::unique_ptr<SerialTransceiver> transceiver, const SerialFramesMap& frames, const SerialFrameId& defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker)
+    SerialProcessor::SerialProcessor(
+        std::unique_ptr<SerialTransceiver> transceiver,
+        const SerialFramesMap& frames,
+        const SerialFrameId& defaultFrame,
+        const char syncValue[],
+        size_t syncValueLen,
+        const SerialProcessorCallbacks& callbacks)
      : transceiver(std::move(transceiver)),
        failedOfLastTen(0),
        failedOfLastTenCounter(0),
@@ -11,15 +17,14 @@ namespace serial_library
        syncValueLen(syncValueLen),
        frameMap(frames),
        defaultFrame(defaultFrame),
-       checker(checker),
-       newMsgFunc(nullptr),
+       callbacks(callbacks),
        valueMap(std::make_unique<SerialValuesMap>())
     {
         SERIAL_LIB_ASSERT(this->transceiver->init(), "Transceiver initialization failed!");
 
         memcpy(this->syncValue, syncValue, syncValueLen);
         
-        //check that the frames include a sync
+        //check that the frames include a sync and checksums are 16 bits
         //TODO: must check all individual frames for a sync, not the frame ids
         for(size_t i = 0; i < frames.size(); i++)
         {
@@ -27,6 +32,12 @@ namespace serial_library
             if(findit(frame.begin(), frame.end(), FIELD_SYNC) == frame.end())
             {
                 THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("No sync field provided in frame " + to_string(i) + " of the map.");
+            }
+
+            size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
+            if(numChecksumBytes != 0 && numChecksumBytes != sizeof(checksum_t))
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("Support for non-" + to_string(sizeof(checksum_t) * 8) + "-bit checksums is not implemented yet.");
             }
         }
 
@@ -79,12 +90,6 @@ namespace serial_library
     SerialProcessor::~SerialProcessor()
     {
         transceiver->deinit();
-    }
-
-
-    void SerialProcessor::setNewMsgCallback(const NewMsgFunc& func)
-    {
-        this->newMsgFunc = func;
     }
 
 
@@ -175,8 +180,22 @@ namespace serial_library
                     }
                 }
             }
+            
+            bool msgPassesUserTest = true;
+            if(set<SerialFieldId>(frameToUse.begin(), frameToUse.end()).count(FIELD_CHECKSUM) > 0)
+            {
+                //grab checksum out of message
+                size_t csLen = extractFieldFromBuffer(msgStart, msgSz, frameToUse, FIELD_CHECKSUM, fieldBuf, sizeof(fieldBuf));
+                checksum_t checksum = convertFromCString<checksum_t>(fieldBuf, csLen);
 
-            bool msgPassesUserTest = checker(msgStart, frameToUse);
+                //remove checksum from message
+                memcpy(checksumlessBuffer, msgStart, msgSz);
+                size_t cslBufLen = deleteChecksumFromBuffer(checksumlessBuffer, msgSz, frameToUse);
+
+                //pass edited message to user function to evaluate checksum
+                msgPassesUserTest = callbacks.checksumEvaluationFunc(checksumlessBuffer, cslBufLen, checksum);
+            }
+
             if(msgStartOffsetFromSync <= syncOffsetFromBuffer && msgPassesUserTest && hasFrameToUse)
             {
                 //iterate through frame and find all unknown fields
@@ -193,6 +212,7 @@ namespace serial_library
 
                 //iterate through known fields and update their values from message
                 std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+                SerialValuesMap msgValueMap;
                 for(auto it = values->begin(); it != values->end(); it++)
                 {
                     memset(fieldBuf, 0, sizeof(fieldBuf));
@@ -206,16 +226,15 @@ namespace serial_library
                         serialData.data.numData = extracted;
 
                         it->second = serialData;
+
+                        msgValueMap.insert({ it->first, it->second });
                     }
                 }
 
                 valueMap.unlockResource(std::move(values));
                 
                 //call new message function
-                if(newMsgFunc)
-                {
-                    newMsgFunc();
-                }
+                callbacks.newMessageCallback(msgValueMap);
             } else
             {
                 //message bad. dont remove like normal, just delete through the sync character
@@ -332,6 +351,27 @@ namespace serial_library
             
             valueMap.unlockResource(std::move(values));
         }
+
+        //now remove checksum bytes from message, compute checksum, and add it to the message
+        if(frameSet.count(FIELD_CHECKSUM) > 0)
+        {
+            //fill checksum buffer with contents of transmission buffer
+            memcpy(checksumlessBuffer, transmissionBuffer, sizeof(transmissionBuffer));
+            size_t checksumBufSz = deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
+            checksum_t checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, checksumBufSz);
+            
+            //fill checksum buffer with encoded checksum
+            size_t checksumLen = convertToCString<checksum_t>(checksum, checksumlessBuffer, sizeof(checksumlessBuffer));
+
+            insertFieldToBuffer(
+                transmissionBuffer,
+                sizeof(transmissionBuffer),
+                frame,
+                FIELD_CHECKSUM,
+                checksumlessBuffer,
+                checksumLen);
+        }
+
 
         transceiver->send(transmissionBuffer, frame.size());
     }
