@@ -89,7 +89,7 @@ void Type2SerialProcessorTest::TearDown()
 
 void CallbacksTest::SetUp() 
 {
-    lastChecksum = 0;
+    lastChksm = 0;
 
     LinuxTransceiverTest::SetUp();
     transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
@@ -97,7 +97,6 @@ void CallbacksTest::SetUp()
         9600,
         0,
         1);
-    
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
         std::move(transceiver),
@@ -121,9 +120,9 @@ SerialValuesMap CallbacksTest::lastReceivedSerialFrames() const
 }
 
 
-serial_library::Checksum CallbacksTest::lastComputedChecksum() const
+Checksum CallbacksTest::lastGeneratedChecksum() const
 {
-    return lastChecksum;
+    return lastChksm;
 }
 
 
@@ -143,7 +142,7 @@ void CallbacksTest::newMsgCallback(const SerialValuesMap& frames)
 }
 
 // checksum is good if sum of the characters equals the checksum
-bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, serial_library::Checksum checksum)
+bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, Checksum checksum)
 {
     unsigned int sum = 0;
     for(unsigned int i = 0; i < len; i++)
@@ -155,15 +154,15 @@ bool CallbacksTest::checksumEvaluator(const char *msg, size_t len, serial_librar
 }
 
 
-serial_library::Checksum CallbacksTest::checksumGenerator(const char* msg, size_t len)
+Checksum CallbacksTest::checksumGenerator(const char* msg, size_t len)
 {
-    serial_library::Checksum sum = 0;
+    unsigned int sum = 0;
     for(unsigned int i = 0; i < len; i++)
     {
         sum += msg[i];
     }
 
-    lastChecksum = sum;
+    lastChksm = sum;
     return sum;
 }
 

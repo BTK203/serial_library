@@ -13,6 +13,7 @@ namespace serial_library
        failedOfLastTen(0),
        failedOfLastTenCounter(0),
        totalOfLastTenCounter(0),
+       lastMsgRecvTime(std::chrono::system_clock::now()),
        msgBufferCursorPos(0),
        syncValueLen(syncValueLen),
        frameMap(frames),
@@ -233,6 +234,9 @@ namespace serial_library
                 
                 //call new message function
                 callbacks.newMessageCallback(msgValueMap);
+
+                //set lastmsg timestamp
+                lastMsgRecvTime = now;
             } else
             {
                 //message bad. dont remove like normal, just delete through the sync character
@@ -270,6 +274,12 @@ namespace serial_library
         valueMap.unlockResource(std::move(values));
         return hasData;
     }
+
+
+    Time SerialProcessor::getLastMsgRecvTime(void) const
+    {
+        return lastMsgRecvTime;
+    }
     
     
     SerialDataStamped SerialProcessor::getField(SerialFieldId field)
@@ -283,6 +293,12 @@ namespace serial_library
 
         valueMap.unlockResource(std::move(values));
         return data;
+    }
+
+
+    Time SerialProcessor::getFieldTimestamp(SerialFieldId id)
+    {
+        return getField(id).timestamp;
     }
     
     
@@ -355,8 +371,8 @@ namespace serial_library
         {
             //fill checksum buffer with contents of transmission buffer
             memcpy(checksumlessBuffer, transmissionBuffer, sizeof(transmissionBuffer));
-            deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
-            Checksum checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, frame.size() - sizeof(Checksum));
+            size_t checksumBufSz = deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
+            Checksum checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, checksumBufSz);
             
             //fill checksum buffer with encoded checksum
             size_t checksumLen = convertToCString<Checksum>(checksum, checksumlessBuffer, sizeof(checksumlessBuffer));

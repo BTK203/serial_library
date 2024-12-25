@@ -87,7 +87,7 @@ namespace serial_library
 
         if(bufLen < frame.size())
         {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not the same as or bigger than the frame length");
+            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not big enough for frame");
         }
 
         while(it != frame.end())

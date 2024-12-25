@@ -210,7 +210,7 @@ namespace serial_library
     }
 
 
-    static uint16_t defaultChecksumGeneratorFunc(const char *msgStart, size_t len)
+    static Checksum defaultChecksumGeneratorFunc(const char *msgStart, size_t len)
     {
         return 0;
     }
@@ -247,7 +247,18 @@ namespace serial_library
 
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
+        Time getLastMsgRecvTime(void) const;
         SerialDataStamped getField(SerialFieldId field);
+
+        template<typename T>
+        T getFieldValue(SerialFieldId field)
+        {
+            SerialDataStamped data = getField(field);
+            T val = convertFromCString<T>(data.data.data, data.data.numData);
+            return val;
+        }
+
+        Time getFieldTimestamp(SerialFieldId id);
         void setField(SerialFieldId field, SerialData data, const Time& now);
 
         template<typename T>
@@ -278,6 +289,7 @@ namespace serial_library
         size_t msgBufferCursorPos;
         char syncValue[MAX_DATA_BYTES];
         size_t syncValueLen;
+        Time lastMsgRecvTime;
 
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;

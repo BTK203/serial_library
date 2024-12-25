@@ -44,7 +44,7 @@ namespace serial_library
         typedef std::chrono::time_point<std::chrono::system_clock> Time;
         typedef std::string string;
         typedef std::mutex mutex;
-        typedef uint16_t checksum_t;
+        typedef uint16_t Checksum;
 
         template<typename K, typename V>
         using pair = std::pair<K, V>;
@@ -64,8 +64,8 @@ namespace serial_library
         template<typename T>
         using NewMessageFunctionTemplate = std::function<void(const T&)>;
 
-        typedef std::function<bool(const char*, size_t, checksum_t)> ChecksumEvaluator;
-        typedef std::function<uint16_t(const char*, size_t)> ChecksumGenerator;
+        typedef std::function<bool(const char*, size_t, Checksum)> ChecksumEvaluator;
+        typedef std::function<Checksum(const char*, size_t)> ChecksumGenerator;
         
         inline Time curtime()
         {
@@ -163,7 +163,7 @@ namespace serial_library
 
     typedef uint8_t SerialFrameId;
     typedef int SerialFieldId;
-    typedef checksum_t Checksum;
+    typedef uint16_t Checksum;
 
     //describes the fields held by a serial frame. Each frame represents 8 bits.
     typedef vector<SerialFieldId> SerialFrame;
