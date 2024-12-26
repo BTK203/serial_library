@@ -240,12 +240,15 @@ TEST(UtilTest, TestAssembleSerialFrameFunction)
     ASSERT_EQ(frame, expected2);
 
     frame = assembleSerialFrame({
+        SerialFrameComponent{ FIELD_SYNC, 2 },
         SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1, 2 },
         SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 2 },
         SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_3, 2 },
         SerialFrameComponent{ Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2, 5 }});
     
     SerialFrame expected3 = {
+        FIELD_SYNC,
+        FIELD_SYNC,
         Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
         Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_1,
         Type1SerialFrame1Fields::TYPE_1_FRAME_1_FIELD_2,

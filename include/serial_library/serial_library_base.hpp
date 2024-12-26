@@ -39,12 +39,15 @@ namespace serial_library
     // platform-dependent includes and typedefs
     //
 
+    typedef uint8_t SerialFrameId;
+    typedef int SerialFieldId;
+    typedef uint16_t Checksum;
+
     #if defined(USE_LINUX)
 
         typedef std::chrono::time_point<std::chrono::system_clock> Time;
         typedef std::string string;
         typedef std::mutex mutex;
-        typedef uint16_t Checksum;
 
         template<typename K, typename V>
         using pair = std::pair<K, V>;
@@ -156,14 +159,10 @@ namespace serial_library
     // library typedefs
     //
 
-    #define FIELD_SYNC INT_MAX
+    #define FIELD_SYNC 255
     #define FIELD_FRAME FIELD_SYNC - 1
     #define FIELD_CHECKSUM FIELD_FRAME - 1
     #define FIELD_TERM FIELD_CHECKSUM - 1
-
-    typedef uint8_t SerialFrameId;
-    typedef int SerialFieldId;
-    typedef uint16_t Checksum;
 
     //describes the fields held by a serial frame. Each frame represents 8 bits.
     typedef vector<SerialFieldId> SerialFrame;

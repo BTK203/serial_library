@@ -118,12 +118,14 @@ namespace serial_library
     size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
     size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
     SerialData serialDataFromString(const char *str, size_t numData);
+    SerialData serialDataFromString(const string& data);
     SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
+    SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);
     
-    size_t countInString(const std::string& s, char c);
+    size_t countInString(const string& s, char c);
 
     typedef pair<SerialFrameId, size_t> SerialFrameComponent;
-    SerialFrame assembleSerialFrame(const std::vector<SerialFrameComponent>& components);
+    SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components);
     
     // "normalized" in this case means that the frame starts with a sync, makes processing easier
     SerialFrame normalizeSerialFrame(const SerialFrame& frame);
@@ -133,11 +135,11 @@ namespace serial_library
     template<typename T>
     T convertFromCString(const char *str, size_t strLen)
     {
-        T val = 0;
+        T val = (T) 0;
 
         if(strLen <= 0)
         {
-            return 0;
+            return (T) 0;
         }
 
         size_t tSz = sizeof(T) / sizeof(*str);
@@ -145,11 +147,11 @@ namespace serial_library
         //shift the smaller number of bytes
         size_t placesToShift = (tSz < strLen ? tSz : strLen);
 
-        val |= str[0];
+        val = (T) (val | str[0]);
         for(size_t i = 1; i < placesToShift; i++)
         {
-            val = val << sizeof(*str) * 8;
-            val |= str[i] & 0xFF;
+            val = (T) (val << sizeof(*str) * 8);
+            val = (T) (val | (str[i] & 0xFF));
         }
 
         return val;
@@ -169,10 +171,16 @@ namespace serial_library
                 numData++;
             }
 
-            val = val >> sizeof(*str) * 8;
+            val = (T) (val >> sizeof(*str) * 8);
         }
 
         return numData;
+    }
+
+    template<typename T>
+    T convertData(const SerialDataStamped& data)
+    {
+        return convertFromCString<T>(data.data.data, data.data.numData);
     }
 
     template<typename T>
@@ -262,7 +270,7 @@ namespace serial_library
         void setField(SerialFieldId field, SerialData data, const Time& now);
 
         template<typename T>
-        void setField(SerialFieldId field, const T& val, const Time& now)
+        void setFieldValue(SerialFieldId field, const T& val, const Time& now)
         {
             SerialData data;
             data.numData = convertToCString(val, data.data, sizeof(T));

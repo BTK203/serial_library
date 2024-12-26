@@ -3,13 +3,13 @@
 namespace serial_library
 {
     SerialProcessor::SerialProcessor(
-        std::unique_ptr<SerialTransceiver> transceiver,
+        std::unique_ptr<SerialTransceiver> transceivr,
         const SerialFramesMap& frames,
         const SerialFrameId& defaultFrame,
         const char syncValue[],
         size_t syncValueLen,
         const SerialProcessorCallbacks& callbacks)
-     : transceiver(std::move(transceiver)),
+     : transceiver(std::move(transceivr)),
        failedOfLastTen(0),
        failedOfLastTenCounter(0),
        totalOfLastTenCounter(0),
@@ -97,6 +97,12 @@ namespace serial_library
     void SerialProcessor::update(const Time& now)
     {
         //TODO can probably rewrite method and use SERIAL_LIB_ASSERT
+        if(!transceiver)
+        {
+            SERLIB_LOG_ERROR("Transceiver is NULL for some reason");
+            return;
+        }
+
         size_t recvd = transceiver->recv(transmissionBuffer, PROCESSOR_BUFFER_SIZE);
         if(recvd == 0)
         {
@@ -384,6 +390,11 @@ namespace serial_library
                 FIELD_CHECKSUM,
                 checksumlessBuffer,
                 checksumLen);
+        }
+
+        if(!transceiver)
+        {
+            SERLIB_LOG_ERROR("transceiver is NULL for some reason");
         }
 
         transceiver->send(transmissionBuffer, frame.size());

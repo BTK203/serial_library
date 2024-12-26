@@ -64,7 +64,7 @@ TEST_F(Type1SerialProcessorTest, TestBasicSendWithManualRecvType1)
     //pack msg and send
     processor->setField(TYPE_1_FRAME_1_FIELD_1, serial_library::serialDataFromString("a", 1), curtime());
     processor->setField(TYPE_1_FRAME_1_FIELD_2, serial_library::serialDataFromString("b", 1), curtime());
-    processor->setField<char>(TYPE_1_FRAME_1_FIELD_3, 'c', curtime());
+    processor->setFieldValue<char>(TYPE_1_FRAME_1_FIELD_3, 'c', curtime());
 
     processor->send(TYPE_1_FRAME_1);
 

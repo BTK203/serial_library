@@ -126,6 +126,12 @@ namespace serial_library
     }
 
 
+    SerialData serialDataFromString(const string& data)
+    {
+        return serialDataFromString(data.c_str(), data.length());
+    }
+
+
     SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp)
     {
         SerialData data = serialDataFromString(str, numData);
@@ -135,7 +141,13 @@ namespace serial_library
     }
 
 
-    size_t countInString(const std::string& s, char c)
+    SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp)
+    {
+        return serialDataStampedFromString(data.c_str(), data.length(), stamp);
+    }
+
+
+    size_t countInString(const string& s, char c)
     {
         size_t n = 0;
         for(char o : s)
@@ -150,7 +162,7 @@ namespace serial_library
     }
 
 
-    SerialFrame assembleSerialFrame(const std::vector<SerialFrameComponent>& components)
+    SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components)
     {
         SerialFrame frame;
         
