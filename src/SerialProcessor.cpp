@@ -131,14 +131,6 @@ namespace serial_library
         memcpy(&msgBuffer[msgBufferCursorPos], updateTransmissionBuffer, bytesToCopy);
         msgBufferCursorPos += bytesToCopy;
 
-        printf("%s: msgBuffer: ", debugName.c_str());
-        for(int i = 0; i < msgBufferCursorPos; i++)
-        {
-            printf("%x ", msgBuffer[i]);
-        }
-
-        printf("\n");
-
         char *syncLocation = nullptr;
         do
         {
@@ -187,6 +179,7 @@ namespace serial_library
                 if(bytes > 0)
                 {
                     SerialFrameId frameId = convertFromCString<SerialFrameId>(frameIdBuf, bytes);
+                    SERLIB_LOG_DEBUG("Received frame with id %d", frameId);
 
                     if(frameMap.find(frameId) == frameMap.end())
                     {
@@ -224,7 +217,7 @@ namespace serial_library
 
             if(msgStartOffsetFromSync <= syncOffsetFromBuffer && msgPassesUserTest && hasFrameToUse)
             {
-                SERLIB_LOG_DEBUG("%s: Processing message because it passed all checks", debugName.c_str());
+                SERLIB_LOG_DEBUG("%s: Processing message with frame because it passed all checks", debugName.c_str());
 
                 //iterate through frame and find all unknown fields
                 for(auto it = frameToUse.begin(); it != frameToUse.end(); it++)
@@ -365,7 +358,6 @@ namespace serial_library
         set<SerialFieldId> frameSet(frame.begin(), frame.end());
         for(auto fieldIt = frameSet.begin(); fieldIt != frameSet.end(); fieldIt++)
         {
-            SERLIB_LOG_DEBUG("%s: Processing field %d for send", debugName.c_str(), *fieldIt);
             SerialData dataToInsert;
             std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
             
@@ -376,9 +368,7 @@ namespace serial_library
                 dataToInsert.numData = syncValueLen;
             } else if(*fieldIt == FIELD_FRAME)
             {
-                SERLIB_LOG_DEBUG("%s: Inserting frame %d to serialdata struct. value currently %d", debugName.c_str(), frameId, dataToInsert.data[dataToInsert.numData - 1]);
                 dataToInsert.numData = convertToCString<SerialFrameId>(frameId, dataToInsert.data, MAX_DATA_BYTES);
-                SERLIB_LOG_DEBUG("%s: After inserting: %d", debugName.c_str(), dataToInsert.data[dataToInsert.numData - 1]);
             } else if(*fieldIt == FIELD_CHECKSUM)
             {
                 valueMapResource.unlockResource(std::move(values));
@@ -393,14 +383,6 @@ namespace serial_library
                 THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Cannot send serial frame because it is missing field " + to_string(*fieldIt));
             }
 
-            printf("%s: inserting field %d with data %d: ", debugName.c_str(), *fieldIt, dataToInsert.data[dataToInsert.numData - 1]);
-            for(int i = 0; i < frame.size(); i++)
-            {
-                printf("%x ", sendTransmissionBuffer[i]);
-            }
-
-            printf("\n");
-
             insertFieldToBuffer(
                 sendTransmissionBuffer, 
                 sizeof(sendTransmissionBuffer), 
@@ -408,14 +390,6 @@ namespace serial_library
                 *fieldIt, 
                 dataToInsert.data,
                 dataToInsert.numData);
-
-                printf("%s: after insert: ", debugName.c_str());
-            for(int i = 0; i < frame.size(); i++)
-            {
-                printf("%x ", sendTransmissionBuffer[i]);
-            }
-
-            printf("\n");
             
             valueMapResource.unlockResource(std::move(values));
         }
@@ -448,15 +422,6 @@ namespace serial_library
             transceiverResource.unlockResource(std::move(transceiver));
             return;
         }
-
-        printf("%s: sending: ", debugName.c_str());
-        for(int i = 0; i < frame.size(); i++)
-        {
-            printf("%x ", sendTransmissionBuffer[i]);
-        }
-
-        printf("\n");
-
 
         transceiver->send(sendTransmissionBuffer, frame.size());
         transceiverResource.unlockResource(std::move(transceiver));

@@ -126,9 +126,9 @@ namespace serial_library
         size_t ret = ::recv(sock, data, numData, 0);
         if(ret == -1)
         {
-            if(ret != EAGAIN)
+            if(errno != EAGAIN)
             {
-                SERLIB_LOG_ERROR("recv() failed: %s", strerror(errno));
+                SERLIB_LOG_ERROR("recv() failed (%d) : %s", errno, strerror(errno));
             }
             
             return 0;
