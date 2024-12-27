@@ -6,8 +6,8 @@
 TEST_F(LinuxTransceiverTest, TestUDPTransceiverUnidirectional)
 {
     serial_library::LinuxUDPTransceiver
-        transceiver1("localhost", 9978, false, false, true),
-        transceiver2("localhost", 9978, false, false, true);
+        transceiver1("localhost", 9978, 0.1, false, false, true),
+        transceiver2("localhost", 9978, 0.1, false, false, true);
     
     const std::string
         expected1 = "hello!",
@@ -41,6 +41,24 @@ TEST_F(LinuxTransceiverTest, TestUDPTransceiverUnidirectional)
     ASSERT_EQ(expected2.length(), recvd2);
     ASSERT_EQ(expected3, msg3);
     ASSERT_EQ(expected3.length(), recvd3);
+}
+
+TEST_F(LinuxTransceiverTest, TestUDPTransceiverTimeout)
+{
+    serial_library::LinuxUDPTransceiver
+        transceiver1("localhost", 9978, 1, false, false, true);
+    
+    transceiver1.init();
+    
+    auto start = std::chrono::system_clock::now();
+    char data[4];
+    transceiver1.recv(data, sizeof(data));
+    auto end = std::chrono::system_clock::now();
+
+    transceiver1.deinit();
+
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    ASSERT_NEAR(elapsed.count(), 1000, 100);
 }
 
 TEST_F(LinuxTransceiverTest, TestUDPTransceiverBidirectional)

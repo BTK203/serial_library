@@ -6,9 +6,10 @@
 namespace serial_library
 {
 
-    LinuxUDPTransceiver::LinuxUDPTransceiver(const std::string& address, int port, bool skipBind, bool skipConnect, bool allowAddrReuse)
+    LinuxUDPTransceiver::LinuxUDPTransceiver(const std::string& address, int port, double recvTimeoutSeconds, bool skipBind, bool skipConnect, bool allowAddrReuse)
      : address(address),
        port(port),
+       recvTimeoutSeconds(recvTimeoutSeconds),
        skipBind(skipBind),
        skipConnect(skipConnect),
        allowAddrReuse(allowAddrReuse),
@@ -23,6 +24,15 @@ namespace serial_library
         {
             THROW_FATAL_SERIAL_LIB_EXCEPTION("socket() failed: " + string(strerror(errno)));
             return false;
+        }
+
+        //set socket timeout
+        timeval to;
+        to.tv_sec = (int) recvTimeoutSeconds;
+        to.tv_usec = (recvTimeoutSeconds - (double) to.tv_sec) * 1000000;
+        if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
+        {
+            THROW_FATAL_SERIAL_LIB_EXCEPTION("setsockopt() failed while trying to set socket recv timeout: " + string(strerror(errno)));
         }
 
         //allow the address to be used if the user wants. needed for testing on local machine
@@ -113,10 +123,15 @@ namespace serial_library
 
     size_t LinuxUDPTransceiver::recv(char *data, size_t numData) const
     {
-        size_t ret = ::recv(sock, data, numData, MSG_DONTWAIT);
+        size_t ret = ::recv(sock, data, numData, 0);
         if(ret == -1)
         {
-            SERLIB_LOG_ERROR("recv() failed: %s", strerror(errno));
+            if(ret != EAGAIN)
+            {
+                SERLIB_LOG_ERROR("recv() failed: %s", strerror(errno));
+            }
+            
+            return 0;
         }
 
         return ret;

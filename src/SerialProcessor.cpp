@@ -8,9 +8,9 @@ namespace serial_library
         const SerialFrameId& defaultFrame,
         const char syncValue[],
         size_t syncValueLen,
-        const SerialProcessorCallbacks& callbacks)
-     : transceiver(std::move(transceivr)),
-       failedOfLastTen(0),
+        const SerialProcessorCallbacks& callbacks,
+        const std::string& debugName)
+     : failedOfLastTen(0),
        failedOfLastTenCounter(0),
        totalOfLastTenCounter(0),
        lastMsgRecvTime(std::chrono::system_clock::now()),
@@ -19,9 +19,13 @@ namespace serial_library
        frameMap(frames),
        defaultFrame(defaultFrame),
        callbacks(callbacks),
-       valueMap(std::make_unique<SerialValuesMap>())
+       debugName(debugName),
+       valueMapResource(std::make_unique<SerialValuesMap>()),
+       transceiverResource(std::move(transceivr))
     {
-        SERIAL_LIB_ASSERT(this->transceiver->init(), "Transceiver initialization failed!");
+        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
+        SERIAL_LIB_ASSERT(transceiver->init(), "Transceiver initialization failed!");
+        transceiverResource.unlockResource(std::move(transceiver));
 
         memcpy(this->syncValue, syncValue, syncValueLen);
         
@@ -32,13 +36,13 @@ namespace serial_library
             SerialFrame frame = frames.at(i);
             if(findit(frame.begin(), frame.end(), FIELD_SYNC) == frame.end())
             {
-                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("No sync field provided in frame " + to_string(i) + " of the map.");
+                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "No sync field provided in frame " + to_string(i) + " of the map.");
             }
 
             size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
             if(numChecksumBytes != 0 && numChecksumBytes != sizeof(Checksum))
             {
-                THROW_FATAL_SERIAL_LIB_EXCEPTION("Support for non-" + to_string(sizeof(Checksum) * 8) + "-bit checksums is not implemented yet.");
+                THROW_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Support for non-" + to_string(sizeof(Checksum) * 8) + "-bit checksums is not implemented yet.");
             }
         }
 
@@ -46,9 +50,9 @@ namespace serial_library
         SerialData syncData = serialDataFromString(syncValue, syncValueLen);
         SerialDataStamped syncDataStamped;
         syncDataStamped.data = syncData;
-        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
         values->insert( {FIELD_SYNC, syncDataStamped} );
-        valueMap.unlockResource(std::move(values));
+        valueMapResource.unlockResource(std::move(values));
         
         SERIAL_LIB_ASSERT(frames.size() > 0, "Must have at least one frame");
         SERIAL_LIB_ASSERT(frames.find(defaultFrame) != frames.end(), "Default frame must be contained within frames");
@@ -90,20 +94,28 @@ namespace serial_library
 
     SerialProcessor::~SerialProcessor()
     {
+        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
         transceiver->deinit();
+        transceiverResource.unlockResource(std::move(transceiver));
     }
 
 
     void SerialProcessor::update(const Time& now)
     {
         //TODO can probably rewrite method and use SERIAL_LIB_ASSERT
+        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
         if(!transceiver)
         {
-            SERLIB_LOG_ERROR("Transceiver is NULL for some reason");
+            SERLIB_LOG_ERROR("%s: Transceiver is NULL for some reason", debugName.c_str());
+            transceiverResource.unlockResource(std::move(transceiver));
             return;
         }
 
-        size_t recvd = transceiver->recv(transmissionBuffer, PROCESSOR_BUFFER_SIZE);
+        size_t recvd = transceiver->recv(updateTransmissionBuffer, PROCESSOR_BUFFER_SIZE);
+        SERLIB_LOG_DEBUG("%s: Received %d bytes", debugName.c_str(), recvd);
+
+        transceiverResource.unlockResource(std::move(transceiver));
+
         if(recvd == 0)
         {
             return;
@@ -116,13 +128,20 @@ namespace serial_library
             bytesToCopy = PROCESSOR_BUFFER_SIZE - msgBufferCursorPos;
         }
 
-        memcpy(&msgBuffer[msgBufferCursorPos], transmissionBuffer, bytesToCopy);
+        memcpy(&msgBuffer[msgBufferCursorPos], updateTransmissionBuffer, bytesToCopy);
         msgBufferCursorPos += bytesToCopy;
+
+        printf("%s: msgBuffer: ", debugName.c_str());
+        for(int i = 0; i < msgBufferCursorPos; i++)
+        {
+            printf("%x ", msgBuffer[i]);
+        }
+
+        printf("\n");
 
         char *syncLocation = nullptr;
         do
         {
-            // find sync values. having two means we have one potential messages
             syncLocation = memstr(msgBuffer, msgBufferCursorPos, syncValue, syncValueLen);
             if(!syncLocation)
             {
@@ -154,6 +173,7 @@ namespace serial_library
             //check that we can parse for a frame id
             if(msgBufferCursorPos < frameSz)
             {
+                SERLIB_LOG_DEBUG("%s: Dropping message because cursor position is less than the size of the default frame", debugName.c_str());
                 //we dont have enough information to parse the default frame for a frame id.
                 break;
             }
@@ -180,7 +200,8 @@ namespace serial_library
                         if(msgBufferCursorPos < frameSz)
                         {
                             //we dont have enough information to parse this frame
-                            continue;
+                            SERLIB_LOG_DEBUG("%s: Dropping message because cursor position is less than the size of the selected frame", debugName.c_str());
+                            break;
                         }
                     }
                 }
@@ -194,29 +215,31 @@ namespace serial_library
                 Checksum checksum = convertFromCString<Checksum>(fieldBuf, csLen);
 
                 //remove checksum from message
-                memcpy(checksumlessBuffer, msgStart, msgBufferCursorPos);
-                deleteChecksumFromBuffer(checksumlessBuffer, msgBufferCursorPos, frameToUse);
+                memcpy(updateChecksumlessBuffer, msgStart, msgBufferCursorPos);
+                deleteChecksumFromBuffer(updateChecksumlessBuffer, msgBufferCursorPos, frameToUse);
 
                 //pass edited message to user function to evaluate checksum
-                msgPassesUserTest = callbacks.checksumEvaluationFunc(checksumlessBuffer, frameToUse.size() - sizeof(Checksum), checksum);
+                msgPassesUserTest = callbacks.checksumEvaluationFunc(updateChecksumlessBuffer, frameToUse.size() - sizeof(Checksum), checksum);
             }
 
             if(msgStartOffsetFromSync <= syncOffsetFromBuffer && msgPassesUserTest && hasFrameToUse)
             {
+                SERLIB_LOG_DEBUG("%s: Processing message because it passed all checks", debugName.c_str());
+
                 //iterate through frame and find all unknown fields
                 for(auto it = frameToUse.begin(); it != frameToUse.end(); it++)
                 {
-                    std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+                    std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
                     if(values->find(*it) == values->end())
                     {
                         values->insert({ *it, SerialDataStamped() });
                     }
 
-                    valueMap.unlockResource(std::move(values));
+                    valueMapResource.unlockResource(std::move(values));
                 }
 
                 //iterate through known fields and update their values from message
-                std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+                std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
                 SerialValuesMap msgValueMap;
                 for(auto it = values->begin(); it != values->end(); it++)
                 {
@@ -236,7 +259,7 @@ namespace serial_library
                     }
                 }
 
-                valueMap.unlockResource(std::move(values));
+                valueMapResource.unlockResource(std::move(values));
                 
                 //call new message function
                 callbacks.newMessageCallback(msgValueMap);
@@ -246,6 +269,7 @@ namespace serial_library
             } else
             {
                 //message bad. dont remove like normal, just delete through the sync character
+                SERLIB_LOG_DEBUG("%s: Skipping message because it failed some checks", debugName.c_str());
                 msgEnd = syncLocation + 1;
                 failedOfLastTenCounter++;
             }
@@ -275,9 +299,9 @@ namespace serial_library
     
     bool SerialProcessor::hasDataForField(SerialFieldId field)
     {
-        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
         bool hasData = values->find(field) != values->end();
-        valueMap.unlockResource(std::move(values));
+        valueMapResource.unlockResource(std::move(values));
         return hasData;
     }
 
@@ -290,14 +314,14 @@ namespace serial_library
     
     SerialDataStamped SerialProcessor::getField(SerialFieldId field)
     {
-        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
         SerialDataStamped data;
         if(values->find(field) != values->end())
         {
             data = values->at(field);
         }
 
-        valueMap.unlockResource(std::move(values));
+        valueMapResource.unlockResource(std::move(values));
         return data;
     }
 
@@ -310,7 +334,7 @@ namespace serial_library
     
     void SerialProcessor::setField(SerialFieldId field, SerialData data, const Time& now)
     {
-        std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
+        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
         if(values->find(field) == values->end())
         {
             //no field currently set, so add one
@@ -321,83 +345,121 @@ namespace serial_library
         stampedData.data = data;
         stampedData.timestamp = now;
         values->at(field) = stampedData;
-        valueMap.unlockResource(std::move(values));
+        valueMapResource.unlockResource(std::move(values));
     }
     
     
-    void SerialProcessor::send(SerialFrameId frameId)
+    void SerialProcessor::send(const SerialFrameId& frameId)
     {
+        SERLIB_LOG_DEBUG("%s sending frame %d", debugName.c_str(), frameId);
+
         if(frameMap.find(frameId) == frameMap.end())
         {
-            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Cannot send message with unknown frame id " + to_string(frameId));
+            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Cannot send message with unknown frame id " + to_string(frameId));
         }
 
+        memset(sendTransmissionBuffer, 0, sizeof(sendTransmissionBuffer));
         SerialFrame frame = frameMap.at(frameId);
 
         //loop through minimal set of frames and pack each frame into the transmission buffer
         set<SerialFieldId> frameSet(frame.begin(), frame.end());
         for(auto fieldIt = frameSet.begin(); fieldIt != frameSet.end(); fieldIt++)
         {
+            SERLIB_LOG_DEBUG("%s: Processing field %d for send", debugName.c_str(), *fieldIt);
             SerialData dataToInsert;
-            std::unique_ptr<SerialValuesMap> values = valueMap.lockResource();
-            if(values->find(*fieldIt) != values->end())
+            std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
+            
+            //couldnt find the field included in the frame. Check if the frame is a builtin type
+            if(*fieldIt == FIELD_SYNC)
+            {
+                memcpy(dataToInsert.data, syncValue, syncValueLen);
+                dataToInsert.numData = syncValueLen;
+            } else if(*fieldIt == FIELD_FRAME)
+            {
+                SERLIB_LOG_DEBUG("%s: Inserting frame %d to serialdata struct. value currently %d", debugName.c_str(), frameId, dataToInsert.data[dataToInsert.numData - 1]);
+                dataToInsert.numData = convertToCString<SerialFrameId>(frameId, dataToInsert.data, MAX_DATA_BYTES);
+                SERLIB_LOG_DEBUG("%s: After inserting: %d", debugName.c_str(), dataToInsert.data[dataToInsert.numData - 1]);
+            } else if(*fieldIt == FIELD_CHECKSUM)
+            {
+                valueMapResource.unlockResource(std::move(values));
+                continue;
+            } else if(values->find(*fieldIt) != values->end())
             {
                 dataToInsert = values->at(*fieldIt).data;
             } else
             {
-                //couldnt find the field included in the frame. Check if the frame is a builtin type
-                if(*fieldIt == FIELD_SYNC)
-                {
-                    memcpy(dataToInsert.data, syncValue, syncValueLen);
-                    dataToInsert.numData = syncValueLen;
-                } else if(*fieldIt == FIELD_FRAME)
-                {
-                    dataToInsert.numData = convertToCString<SerialFrameId>(frameId, dataToInsert.data, MAX_DATA_BYTES);
-                } else if(*fieldIt != FIELD_CHECKSUM)
-                {
-                    //if it is a custom type, throw exception because it is undefined
-                    valueMap.unlockResource(std::move(values));
-                    THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Cannot send serial frame because it is missing field " + to_string(*fieldIt));
-                }
+                //if it is a custom type, throw exception because it is undefined
+                valueMapResource.unlockResource(std::move(values));
+                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Cannot send serial frame because it is missing field " + to_string(*fieldIt));
             }
 
+            printf("%s: inserting field %d with data %d: ", debugName.c_str(), *fieldIt, dataToInsert.data[dataToInsert.numData - 1]);
+            for(int i = 0; i < frame.size(); i++)
+            {
+                printf("%x ", sendTransmissionBuffer[i]);
+            }
+
+            printf("\n");
+
             insertFieldToBuffer(
-                transmissionBuffer, 
-                sizeof(transmissionBuffer), 
+                sendTransmissionBuffer, 
+                sizeof(sendTransmissionBuffer), 
                 frame, 
                 *fieldIt, 
                 dataToInsert.data,
                 dataToInsert.numData);
+
+                printf("%s: after insert: ", debugName.c_str());
+            for(int i = 0; i < frame.size(); i++)
+            {
+                printf("%x ", sendTransmissionBuffer[i]);
+            }
+
+            printf("\n");
             
-            valueMap.unlockResource(std::move(values));
+            valueMapResource.unlockResource(std::move(values));
         }
 
         //now remove checksum bytes from message, compute checksum, and add it to the message
         if(frameSet.count(FIELD_CHECKSUM) > 0)
         {
             //fill checksum buffer with contents of transmission buffer
-            memcpy(checksumlessBuffer, transmissionBuffer, sizeof(transmissionBuffer));
-            size_t checksumBufSz = deleteChecksumFromBuffer(checksumlessBuffer, sizeof(checksumlessBuffer), frame);
-            Checksum checksum = callbacks.checksumGenerationFunc(checksumlessBuffer, checksumBufSz);
+            memcpy(sendChecksumlessBuffer, sendTransmissionBuffer, sizeof(sendTransmissionBuffer));
+            deleteChecksumFromBuffer(sendChecksumlessBuffer, sizeof(sendChecksumlessBuffer), frame);
+            Checksum checksum = callbacks.checksumGenerationFunc(sendChecksumlessBuffer, frame.size() - sizeof(Checksum));
             
             //fill checksum buffer with encoded checksum
-            size_t checksumLen = convertToCString<Checksum>(checksum, checksumlessBuffer, sizeof(checksumlessBuffer));
+            size_t checksumLen = convertToCString<Checksum>(checksum, sendChecksumlessBuffer, sizeof(sendChecksumlessBuffer));
 
             insertFieldToBuffer(
-                transmissionBuffer,
-                sizeof(transmissionBuffer),
+                sendTransmissionBuffer,
+                sizeof(sendTransmissionBuffer),
                 frame,
                 FIELD_CHECKSUM,
-                checksumlessBuffer,
+                sendChecksumlessBuffer,
                 checksumLen);
         }
 
+        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
+
         if(!transceiver)
         {
-            SERLIB_LOG_ERROR("transceiver is NULL for some reason");
+            SERLIB_LOG_ERROR("%s: Transceiver is NULL for some reason", debugName.c_str());
+            transceiverResource.unlockResource(std::move(transceiver));
+            return;
         }
 
-        transceiver->send(transmissionBuffer, frame.size());
+        printf("%s: sending: ", debugName.c_str());
+        for(int i = 0; i < frame.size(); i++)
+        {
+            printf("%x ", sendTransmissionBuffer[i]);
+        }
+
+        printf("\n");
+
+
+        transceiver->send(sendTransmissionBuffer, frame.size());
+        transceiverResource.unlockResource(std::move(transceiver));
     }
 
     unsigned short SerialProcessor::failedOfLastTenMessages()

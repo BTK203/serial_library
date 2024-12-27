@@ -71,7 +71,13 @@ namespace serial_library
     {
         public:
         LinuxUDPTransceiver() = default;
-        LinuxUDPTransceiver(const std::string& address, int port, bool skipBind = false, bool skipConnect = false, bool allowAddrReuse=false);
+        LinuxUDPTransceiver(
+            const std::string& address, 
+            int port, 
+            double recvTimeoutSeconds = 0.01,
+            bool skipBind = false, 
+            bool skipConnect = false, 
+            bool allowAddrReuse=false);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -81,6 +87,7 @@ namespace serial_library
         private:
         const std::string address;
         const int port;
+        const double recvTimeoutSeconds;
         const bool 
             allowAddrReuse,
             skipBind,
@@ -97,7 +104,7 @@ namespace serial_library
     {
         public:
         LinuxDualUDPTransceiver() = default;
-        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort);
+        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds = 0.01);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -249,7 +256,8 @@ namespace serial_library
             const SerialFrameId& defaultFrame,
             const char syncValue[],
             size_t syncValueLen,
-            const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS);
+            const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS,
+            const std::string& debugName = "SerialProcessor");
         
         ~SerialProcessor();
 
@@ -277,33 +285,35 @@ namespace serial_library
             setField(field, data, now);
         }
 
-        void send(SerialFrameId frameId);
+        void send(const SerialFrameId& frameId);
         unsigned short failedOfLastTenMessages();
 
         private:
         // regular member vars
-        std::unique_ptr<SerialTransceiver> transceiver;
-        char 
-            msgBuffer[PROCESSOR_BUFFER_SIZE],
-            transmissionBuffer[PROCESSOR_BUFFER_SIZE],
-            checksumlessBuffer[PROCESSOR_BUFFER_SIZE],
-            fieldBuf[PROCESSOR_BUFFER_SIZE];
-        
+        char msgBuffer[PROCESSOR_BUFFER_SIZE]; // update() only
+        char updateChecksumlessBuffer[PROCESSOR_BUFFER_SIZE]; //update() only
+        char sendChecksumlessBuffer[PROCESSOR_BUFFER_SIZE]; //send() only
+        char updateTransmissionBuffer[PROCESSOR_BUFFER_SIZE]; //update() only
+        char sendTransmissionBuffer[PROCESSOR_BUFFER_SIZE]; //send() only
+        char fieldBuf[MAX_DATA_BYTES]; //update() only
+
         unsigned short 
             failedOfLastTen,
             failedOfLastTenCounter,
             totalOfLastTenCounter;
         
         size_t msgBufferCursorPos;
-        char syncValue[MAX_DATA_BYTES];
-        size_t syncValueLen;
         Time lastMsgRecvTime;
+        char syncValue[MAX_DATA_BYTES];
+        const size_t syncValueLen;
 
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;
         const SerialProcessorCallbacks callbacks;
+        const std::string debugName;
         
         // "thread-safe" resources 
-        ProtectedResource<SerialValuesMap> valueMap;
+        ProtectedResource<SerialValuesMap> valueMapResource;
+        ProtectedResource<SerialTransceiver> transceiverResource;
     };
 }

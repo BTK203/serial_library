@@ -30,7 +30,7 @@ namespace serial_library
         auto it = frame.begin();
         size_t nextUnusedCharacter = 0; //for dst
 
-        while(it != frame.end() && nextUnusedCharacter < dstLen)
+        while(it < frame.end() && nextUnusedCharacter < dstLen)
         {
             //find next location of the field in the frame
             it = find(it, frame.end(), field);
@@ -138,6 +138,8 @@ namespace serial_library
         SerialDataStamped stamped;
         stamped.data = data;
         stamped.timestamp = stamp;
+
+        return stamped;
     }
 
 
