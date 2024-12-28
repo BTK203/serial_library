@@ -104,7 +104,7 @@ namespace serial_library
     {
         public:
         LinuxDualUDPTransceiver() = default;
-        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds = 0.01);
+        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds = 0.01, bool allowReuseAddr = false);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;

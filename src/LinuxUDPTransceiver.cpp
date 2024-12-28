@@ -78,7 +78,7 @@ namespace serial_library
 
             if((res = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &ahints, &ainfo)) < 0)
             {
-                THROW_FATAL_SERIAL_LIB_EXCEPTION("getaddrinfo() failed for connect: " + to_string(res));
+                SERLIB_LOG_ERROR("getaddrinfo() failed for connect (address %s): %s", address.c_str(), strerror(errno));
                 return false;
             }
 
@@ -91,7 +91,7 @@ namespace serial_library
                     break;
                 }
 
-                SERLIB_LOG_DEBUG("Failed to connect(): %s", strerror(errno));
+                SERLIB_LOG_ERROR("Failed to connect() to %s: %s", address.c_str(), strerror(errno));
             }
 
             if(!nextainfo)
@@ -116,7 +116,7 @@ namespace serial_library
         size_t ret = ::send(sock, data, numData, 0);
         if(ret == -1)
         {
-            SERLIB_LOG_ERROR("send() failed: %s", strerror(errno));
+            SERLIB_LOG_ERROR("send() to %s failed: %s", address.c_str(), strerror(errno));
         }
     }
 
@@ -128,7 +128,7 @@ namespace serial_library
         {
             if(errno != EAGAIN)
             {
-                SERLIB_LOG_ERROR("recv() failed (%d) : %s", errno, strerror(errno));
+                SERLIB_LOG_ERROR("recv() from %s failed (%d) : %s", address.c_str(), errno, strerror(errno));
             }
             
             return 0;

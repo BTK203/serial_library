@@ -2,9 +2,14 @@
 
 namespace serial_library  {
     
-    LinuxDualUDPTransceiver::LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds)
-    : recvUDP(address, recvPort, recvTimeoutSeconds, false, true),
-      sendUDP(address, sendPort, recvTimeoutSeconds, true, false) { }
+    LinuxDualUDPTransceiver::LinuxDualUDPTransceiver(
+        const std::string& address, 
+        int recvPort, 
+        int sendPort, 
+        double recvTimeoutSeconds, 
+        bool allowReuseAddr)
+    : recvUDP(address, recvPort, recvTimeoutSeconds, false, true, allowReuseAddr),
+      sendUDP(address, sendPort, recvTimeoutSeconds, true, false, allowReuseAddr) { }
 
     bool LinuxDualUDPTransceiver::init(void)
     {
