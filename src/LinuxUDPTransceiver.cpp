@@ -116,7 +116,7 @@ namespace serial_library
         size_t ret = ::send(sock, data, numData, 0);
         if(ret == -1)
         {
-            SERLIB_LOG_ERROR("send() to %s failed: %s", address.c_str(), strerror(errno));
+            SERLIB_LOG_DEBUG("send() to %s failed: %s", address.c_str(), strerror(errno));
         }
     }
 
@@ -128,7 +128,7 @@ namespace serial_library
         {
             if(errno != EAGAIN)
             {
-                SERLIB_LOG_ERROR("recv() from %s failed (%d) : %s", address.c_str(), errno, strerror(errno));
+                SERLIB_LOG_DEBUG("recv() from %s failed (%d) : %s", address.c_str(), errno, strerror(errno));
             }
             
             return 0;

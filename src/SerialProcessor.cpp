@@ -13,7 +13,6 @@ namespace serial_library
      : failedOfLastTen(0),
        failedOfLastTenCounter(0),
        totalOfLastTenCounter(0),
-       lastMsgRecvTime(std::chrono::system_clock::now()),
        msgBufferCursorPos(0),
        syncValueLen(syncValueLen),
        frameMap(frames),
