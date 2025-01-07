@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #
 # Requirements
 #
-find_package(ament_cmake REQUIRED)
+find_package(ament_cmake)
 find_package(Threads REQUIRED)
 
 #
@@ -41,7 +41,9 @@ install(DIRECTORY include/
 #
 # Export serial library
 #
-ament_export_targets(serial_libraryTargets HAS_LIBRARY_TARGET)
+if(ament_cmake_FOUND)
+    ament_export_targets(serial_libraryTargets HAS_LIBRARY_TARGET)
+endif()
 
 #
 # Compile test files
@@ -61,4 +63,6 @@ if(BUILD_TESTING)
         DESTINATION lib/${PROJECT_NAME})
 endif()
 
-ament_package()
+if(ament_cmake_FOUND)
+    ament_package()
+endif()
