@@ -8,10 +8,6 @@
 
 #define SERLIB_CURRENT_LOG_LEVEL SerlibLogLevel::SERLIB_DEBUG
 
-//
-// logging macros. These are overridable by defining the macro before including the file
-//
-
 #ifndef SERLIB_LOG_GENERIC
 #define SERLIB_LOG_GENERIC(level, ...) serlibLoggingFunc(SerlibLogLevel::level, "[serlib] [" #level "] " __VA_ARGS__)
 #endif

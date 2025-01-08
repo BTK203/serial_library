@@ -32,6 +32,7 @@ namespace serial_library
         to.tv_usec = (recvTimeoutSeconds - (double) to.tv_sec) * 1000000;
         if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
         {
+            close(sock);
             THROW_FATAL_SERIAL_LIB_EXCEPTION("setsockopt() failed while trying to set socket recv timeout: " + string(strerror(errno)));
         }
 
@@ -55,6 +56,7 @@ namespace serial_library
             if(bind(sock, (const sockaddr *) &bindaddr, sizeof(bindaddr)) < 0)
             {
                 THROW_FATAL_SERIAL_LIB_EXCEPTION("bind() failed: " + string(strerror(errno)));
+                close(sock);
                 return false;
             }
             
@@ -79,6 +81,7 @@ namespace serial_library
             if((res = getaddrinfo(address.c_str(), std::to_string(port).c_str(), &ahints, &ainfo)) < 0)
             {
                 SERLIB_LOG_ERROR("getaddrinfo() failed for connect (address %s): %s", address.c_str(), strerror(errno));
+                close(sock);
                 return false;
             }
 
@@ -97,6 +100,7 @@ namespace serial_library
             if(!nextainfo)
             {
                 THROW_FATAL_SERIAL_LIB_EXCEPTION("connect() failed for all address options!");
+                close(sock);
                 return false;
             }
             
