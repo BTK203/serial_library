@@ -68,6 +68,8 @@ namespace serial_library
 
         if(!skipConnect)
         {
+            SERLIB_LOG_DEBUG("Connecting to address %s on port %d", address.c_str(), port);
+
             //now connect to target
             addrinfo ahints, *ainfo;
             memset(&ahints, 0, sizeof(ahints));
