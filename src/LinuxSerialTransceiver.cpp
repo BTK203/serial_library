@@ -96,7 +96,12 @@ namespace serial_library
     {
         if(initialized)
         {
-            write(file, data, numData);
+            ssize_t ret = write(file, data, numData);
+
+            if(ret < 0)
+            {
+                SERLIB_LOG_ERROR("Failed to send: %s", strerror(errno));
+            }
         }
     }
 
@@ -106,7 +111,13 @@ namespace serial_library
         memset(data, 0, numData);
         if(initialized)
         {
-            return read(file, data, numData);
+            ssize_t ret = read(file, data, numData);
+            if(ret < 0)
+            {
+                return 0;
+            }
+
+            return ret;
         }
 
         return 0;

@@ -30,7 +30,7 @@ namespace serial_library
         auto it = frame.begin();
         size_t nextUnusedCharacter = 0; //for dst
 
-        while(it != frame.end() && nextUnusedCharacter < dstLen)
+        while(it < frame.end() && nextUnusedCharacter < dstLen)
         {
             //find next location of the field in the frame
             it = find(it, frame.end(), field);
@@ -79,12 +79,126 @@ namespace serial_library
         }
     }
 
+
+    size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field)
+    {
+        auto it = frame.begin();
+        size_t newBufLen = bufLen;
+
+        if(bufLen < frame.size())
+        {
+            THROW_FATAL_SERIAL_LIB_EXCEPTION("Buffer length is not big enough for frame");
+        }
+
+        while(it != frame.end())
+        {
+            //find next location of the field in the frame
+            it = find(it, frame.end(), field);
+            if(it == frame.end())
+            {
+                break;
+            }
+
+            //the " + newBufLen - bufLen" makes algorithm robust to changes in buffer caused by removing characters
+            size_t idx = (it - frame.begin()) + newBufLen - bufLen;
+            memmove(&buf[idx], &buf[idx + 1], bufLen - idx);
+            newBufLen--;
+
+            it++;
+        }
+
+        return newBufLen;
+    }
+
+    
+    size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame)
+    {
+        return deleteFieldAndShiftBuffer(buf, bufLen, frame, FIELD_CHECKSUM);
+    }
+
+
     SerialData serialDataFromString(const char* str, size_t numData)
     {
         SerialData data;
         strcpy(data.data, str);
         data.numData = numData;
         return data;
+    }
+
+
+    SerialData serialDataFromString(const string& data)
+    {
+        return serialDataFromString(data.c_str(), data.length());
+    }
+
+
+    SerialData switchDataEndianness(const SerialData& data)
+    {
+        SerialData ret = data;
+        for(size_t i = 0; i < data.numData; i++)
+        {
+            ret.data[i] = data.data[data.numData - i - 1];
+        }
+
+        return ret;
+    }
+
+
+    SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp)
+    {
+        SerialData data = serialDataFromString(str, numData);
+        SerialDataStamped stamped;
+        stamped.data = data;
+        stamped.timestamp = stamp;
+
+        return stamped;
+    }
+
+
+    SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp)
+    {
+        return serialDataStampedFromString(data.c_str(), data.length(), stamp);
+    }
+
+
+    SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data)
+    {
+        SerialDataStamped ret = data;
+        ret.data = switchDataEndianness(ret.data);
+        return ret;
+    }
+
+
+    size_t countInString(const string& s, char c)
+    {
+        size_t n = 0;
+        for(char o : s)
+        {
+            if(o == c)
+            {
+                n++;
+            }
+        }
+
+        return n;
+    }
+
+
+    SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components)
+    {
+        SerialFrame frame;
+        
+        for(size_t i = 0; i < components.size(); i++)
+        {
+            SerialFrameComponent comp = components.at(i);
+            SerialFrameId id = comp.first;
+            for(size_t j = 0; j < comp.second; j++)
+            {
+                frame.push_back(id);
+            }
+        }
+
+        return frame;
     }
 
 

@@ -1,6 +1,8 @@
 #include "serial_library/testing.hpp"
 #include <filesystem>
 
+using namespace serial_library;
+
 #if defined(USE_LINUX)
 
 void LinuxTransceiverTest::SetUp()

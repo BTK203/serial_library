@@ -71,7 +71,13 @@ namespace serial_library
     {
         public:
         LinuxUDPTransceiver() = default;
-        LinuxUDPTransceiver(const std::string& address, int port, bool skipBind = false, bool skipConnect = false, bool allowAddrReuse=false);
+        LinuxUDPTransceiver(
+            const std::string& address, 
+            int port, 
+            double recvTimeoutSeconds = 0.01,
+            bool skipBind = false, 
+            bool skipConnect = false, 
+            bool allowAddrReuse=false);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -81,6 +87,7 @@ namespace serial_library
         private:
         const std::string address;
         const int port;
+        const double recvTimeoutSeconds;
         const bool 
             allowAddrReuse,
             skipBind,
@@ -97,7 +104,7 @@ namespace serial_library
     {
         public:
         LinuxDualUDPTransceiver() = default;
-        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort);
+        LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds = 0.01, bool allowReuseAddr = false);
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -115,7 +122,19 @@ namespace serial_library
     char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle);
     size_t extractFieldFromBuffer(const char *src, size_t srcLen, SerialFrame frame, SerialFieldId field, char *dst, size_t dstLen);
     void insertFieldToBuffer(char *dst, size_t dstLen, SerialFrame frame, SerialFieldId field, const char *src, size_t srcLen);
+    size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
+    size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
     SerialData serialDataFromString(const char *str, size_t numData);
+    SerialData serialDataFromString(const string& data);
+    SerialData switchDataEndianness(const SerialData& data);
+    SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
+    SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);
+    SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data);
+    
+    size_t countInString(const string& s, char c);
+
+    typedef pair<SerialFrameId, size_t> SerialFrameComponent;
+    SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components);
     
     // "normalized" in this case means that the frame starts with a sync, makes processing easier
     SerialFrame normalizeSerialFrame(const SerialFrame& frame);
@@ -125,11 +144,11 @@ namespace serial_library
     template<typename T>
     T convertFromCString(const char *str, size_t strLen)
     {
-        T val = 0;
+        T val = (T) 0;
 
         if(strLen <= 0)
         {
-            return 0;
+            return (T) 0;
         }
 
         size_t tSz = sizeof(T) / sizeof(*str);
@@ -137,11 +156,11 @@ namespace serial_library
         //shift the smaller number of bytes
         size_t placesToShift = (tSz < strLen ? tSz : strLen);
 
-        val |= str[0];
+        val = (T) (val | str[0]);
         for(size_t i = 1; i < placesToShift; i++)
         {
-            val = val << sizeof(*str) * 8;
-            val |= str[i] & 0xFF;
+            val = (T) (val << sizeof(*str) * 8);
+            val = (T) (val | (str[i] & 0xFF));
         }
 
         return val;
@@ -161,10 +180,16 @@ namespace serial_library
                 numData++;
             }
 
-            val = val >> sizeof(*str) * 8;
+            val = (T) (val >> sizeof(*str) * 8);
         }
 
         return numData;
+    }
+
+    template<typename T>
+    T convertData(const SerialDataStamped& data)
+    {
+        return convertFromCString<T>(data.data.data, data.data.numData);
     }
 
     template<typename T>
@@ -192,10 +217,30 @@ namespace serial_library
     };
 
 
-    static bool defaultCheckFunc(const char*, const SerialFrame&)
+    static void defaultNewMessageCallback(const SerialValuesMap& map)
+    { }
+
+
+    static bool defaultChecksumEvaluationFunc(const char* msg, size_t len, Checksum checksum)
     {
         return true;
     }
+
+
+    static Checksum defaultChecksumGeneratorFunc(const char *msgStart, size_t len)
+    {
+        return 0;
+    }
+
+
+    struct SerialProcessorCallbacks
+    {
+        NewMsgFunc newMessageCallback = &defaultNewMessageCallback;
+        ChecksumEvaluator checksumEvaluationFunc = &defaultChecksumEvaluationFunc;
+        ChecksumGenerator checksumGenerationFunc = &defaultChecksumGeneratorFunc;
+    };
+
+    const SerialProcessorCallbacks DEFAULT_CALLBACKS;
 
 
     class SerialProcessor
@@ -207,39 +252,72 @@ namespace serial_library
         #endif
 
         SerialProcessor() = default;
-        SerialProcessor(std::unique_ptr<SerialTransceiver> transceiver, const SerialFramesMap& frames, const SerialFrameId& defaultFrame, const char syncValue[], size_t syncValueLen, CheckFunc checker = &defaultCheckFunc);
+        SerialProcessor(
+            std::unique_ptr<SerialTransceiver> transceiver,
+            const SerialFramesMap& frames,
+            const SerialFrameId& defaultFrame,
+            const char syncValue[],
+            size_t syncValueLen,
+            bool switchEndianness = false,
+            const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS,
+            const std::string& debugName = "SerialProcessor");
+        
         ~SerialProcessor();
-        void setNewMsgCallback(const NewMsgFunc& func);
+
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
+        Time getLastMsgRecvTime(void) const;
         SerialDataStamped getField(SerialFieldId field);
+
+        template<typename T>
+        T getFieldValue(SerialFieldId field)
+        {
+            SerialDataStamped data = getField(field);
+            T val = convertFromCString<T>(data.data.data, data.data.numData);
+            return val;
+        }
+
+        Time getFieldTimestamp(SerialFieldId id);
         void setField(SerialFieldId field, SerialData data, const Time& now);
-        void send(SerialFrameId frameId);
+
+        template<typename T>
+        void setFieldValue(SerialFieldId field, const T& val, const Time& now)
+        {
+            SerialData data;
+            data.numData = convertToCString(val, data.data, sizeof(T));
+            setField(field, data, now);
+        }
+
+        void send(const SerialFrameId& frameId);
         unsigned short failedOfLastTenMessages();
 
         private:
         // regular member vars
-        std::unique_ptr<SerialTransceiver> transceiver;
-        char 
-            msgBuffer[PROCESSOR_BUFFER_SIZE],
-            transmissionBuffer[PROCESSOR_BUFFER_SIZE],
-            fieldBuf[PROCESSOR_BUFFER_SIZE];
-        
+        char msgBuffer[PROCESSOR_BUFFER_SIZE]; // update() only
+        char updateChecksumlessBuffer[PROCESSOR_BUFFER_SIZE]; //update() only
+        char sendChecksumlessBuffer[PROCESSOR_BUFFER_SIZE]; //send() only
+        char updateTransmissionBuffer[PROCESSOR_BUFFER_SIZE]; //update() only
+        char sendTransmissionBuffer[PROCESSOR_BUFFER_SIZE]; //send() only
+        char fieldBuf[MAX_DATA_BYTES]; //update() only
+
         unsigned short 
             failedOfLastTen,
             failedOfLastTenCounter,
             totalOfLastTenCounter;
         
         size_t msgBufferCursorPos;
+        Time lastMsgRecvTime;
         char syncValue[MAX_DATA_BYTES];
-        size_t syncValueLen;
-
+        const size_t syncValueLen;
+    
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;
-        const CheckFunc checker;
-        NewMsgFunc newMsgFunc; // non-const becuase this can be set with a function
+        const bool switchEndianness;
+        const SerialProcessorCallbacks callbacks;
+        const std::string debugName;
         
         // "thread-safe" resources 
-        ProtectedResource<SerialValuesMap> valueMap;
+        ProtectedResource<SerialValuesMap> valueMapResource;
+        ProtectedResource<SerialTransceiver> transceiverResource;
     };
 }
