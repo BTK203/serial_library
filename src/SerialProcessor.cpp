@@ -8,6 +8,7 @@ namespace serial_library
         const SerialFrameId& defaultFrame,
         const char syncValue[],
         size_t syncValueLen,
+        bool switchEndianness,
         const SerialProcessorCallbacks& callbacks,
         const std::string& debugName)
      : failedOfLastTen(0),
@@ -17,6 +18,7 @@ namespace serial_library
        syncValueLen(syncValueLen),
        frameMap(frames),
        defaultFrame(defaultFrame),
+       switchEndianness(switchEndianness),
        callbacks(callbacks),
        debugName(debugName),
        valueMapResource(std::make_unique<SerialValuesMap>()),
@@ -30,12 +32,12 @@ namespace serial_library
         
         //check that the frames include a sync and checksums are 16 bits
         //TODO: must check all individual frames for a sync, not the frame ids
-        for(size_t i = 0; i < frames.size(); i++)
+        for(auto it = frames.begin(); it != frames.end(); it++)
         {
-            SerialFrame frame = frames.at(i);
+            SerialFrame frame = it->second;
             if(findit(frame.begin(), frame.end(), FIELD_SYNC) == frame.end())
             {
-                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "No sync field provided in frame " + to_string(i) + " of the map.");
+                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "No sync field provided in frame " + to_string(it->first) + " of the map.");
             }
 
             size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
@@ -63,21 +65,21 @@ namespace serial_library
         auto frameFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_FRAME);
         size_t frameFieldLoc = frameFieldIt - frames.at(0).begin();
 
-        for(size_t i = 0; i < frames.size(); i++)
+        for(auto it = frames.begin(); it != frames.end(); it++)
         {
-            auto iSyncIt = findit(frames.at(i).begin(), frames.at(i).end(), FIELD_SYNC);
-            auto iFrameIt = findit(frames.at(i).begin(), frames.at(i).end(), FIELD_FRAME);
+            auto iSyncIt = findit(it->second.begin(), it->second.end(), FIELD_SYNC);
+            auto iFrameIt = findit(it->second.begin(), it->second.end(), FIELD_FRAME);
 
-            SERIAL_LIB_ASSERT((size_t) (iSyncIt - frames.at(i).begin()) == syncFieldLoc, "Sync fields not aligned!");
-            SERIAL_LIB_ASSERT((size_t) (iFrameIt - frames.at(i).begin()) == frameFieldLoc, "Frame fields not aligned!");
-            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, frames.at(i).end(), FIELD_FRAME) == frames.at(i).end(), "Large frame fields are not supported yet.");
+            // SERIAL_LIB_ASSERT((size_t) (iSyncIt - frames.at(i).begin()) == syncFieldLoc, "Sync fields not aligned!");
+            SERIAL_LIB_ASSERT((size_t) (iFrameIt - it->second.begin()) == frameFieldLoc, "Frame fields not aligned!");
+            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
 
             //check that the sync is continuous
             size_t syncFrameLen = 1;
-            while(iSyncIt != frames.at(i).end())
+            while(iSyncIt != it->second.end())
             {
-                auto nextSyncFieldIt = findit(iSyncIt + 1, frames.at(i).end(), FIELD_SYNC);
-                if(nextSyncFieldIt != frames.at(i).end())
+                auto nextSyncFieldIt = findit(iSyncIt + 1, it->second.end(), FIELD_SYNC);
+                if(nextSyncFieldIt != it->second.end())
                 {
                     SERIAL_LIB_ASSERT(nextSyncFieldIt - iSyncIt == 1, "Sync frame is not continuous!");
                     syncFrameLen++;
@@ -164,7 +166,7 @@ namespace serial_library
             //check that we can parse for a frame id
             if(msgBufferCursorPos < frameSz)
             {
-                SERLIB_LOG_DEBUG("%s: Dropping message because cursor position is less than the size of the default frame", debugName.c_str());
+                SERLIB_LOG_DEBUG("%s: Dropping message because cursor position is less than the size of the default frame (not enough info to parse)", debugName.c_str());
                 //we dont have enough information to parse the default frame for a frame id.
                 break;
             }
@@ -311,6 +313,11 @@ namespace serial_library
         if(values->find(field) != values->end())
         {
             data = values->at(field);
+
+            if(switchEndianness)
+            {
+                data = switchStampedDataEndianness(data);
+            }
         }
 
         valueMapResource.unlockResource(std::move(values));

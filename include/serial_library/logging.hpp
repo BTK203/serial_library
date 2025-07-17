@@ -6,7 +6,7 @@
 // log level setting
 //
 
-#define SERLIB_CURRENT_LOG_LEVEL SerlibLogLevel::SERLIB_DEBUG
+#define SERLIB_CURRENT_LOG_LEVEL SerlibLogLevel::SERLIB_INFO
 
 #ifndef SERLIB_LOG_GENERIC
 #define SERLIB_LOG_GENERIC(level, ...) serlibLoggingFunc(SerlibLogLevel::level, "[serlib] [" #level "] " __VA_ARGS__)

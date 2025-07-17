@@ -132,6 +132,18 @@ namespace serial_library
     }
 
 
+    SerialData switchDataEndianness(const SerialData& data)
+    {
+        SerialData ret = data;
+        for(size_t i = 0; i < data.numData; i++)
+        {
+            ret.data[i] = data.data[data.numData - i - 1];
+        }
+
+        return ret;
+    }
+
+
     SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp)
     {
         SerialData data = serialDataFromString(str, numData);
@@ -146,6 +158,14 @@ namespace serial_library
     SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp)
     {
         return serialDataStampedFromString(data.c_str(), data.length(), stamp);
+    }
+
+
+    SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data)
+    {
+        SerialDataStamped ret = data;
+        ret.data = switchDataEndianness(ret.data);
+        return ret;
     }
 
 

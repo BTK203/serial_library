@@ -104,6 +104,7 @@ void CallbacksTest::SetUp()
         Type1SerialFrames1::TYPE_1_FRAME_1,
         syncValue,
         sizeof(syncValue),
+        false,
         getCallbacks());
 }
 

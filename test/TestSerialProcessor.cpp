@@ -304,6 +304,7 @@ TEST_F(CallbacksTest, TestChecksumFuncs)
         Type2SerialFrames1::TYPE_2_FRAME_1,
         syncValue,
         sizeof(syncValue),
+        false,
         getCallbacks());
     
     //test sending frame 1

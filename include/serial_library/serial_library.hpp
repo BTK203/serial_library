@@ -126,8 +126,10 @@ namespace serial_library
     size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
     SerialData serialDataFromString(const char *str, size_t numData);
     SerialData serialDataFromString(const string& data);
+    SerialData switchDataEndianness(const SerialData& data);
     SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
     SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);
+    SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data);
     
     size_t countInString(const string& s, char c);
 
@@ -256,6 +258,7 @@ namespace serial_library
             const SerialFrameId& defaultFrame,
             const char syncValue[],
             size_t syncValueLen,
+            bool switchEndianness = false,
             const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS,
             const std::string& debugName = "SerialProcessor");
         
@@ -306,9 +309,10 @@ namespace serial_library
         Time lastMsgRecvTime;
         char syncValue[MAX_DATA_BYTES];
         const size_t syncValueLen;
-
+    
         const SerialFramesMap frameMap;
         const SerialFrameId defaultFrame;
+        const bool switchEndianness;
         const SerialProcessorCallbacks callbacks;
         const std::string debugName;
         
