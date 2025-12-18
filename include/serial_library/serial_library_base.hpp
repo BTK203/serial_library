@@ -44,7 +44,6 @@ namespace serial_library
     typedef uint16_t Checksum;
 
     #if defined(USE_LINUX)
-
         typedef std::chrono::time_point<std::chrono::system_clock> Time;
         typedef std::string string;
         typedef std::mutex mutex;

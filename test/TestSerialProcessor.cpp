@@ -42,7 +42,7 @@ TEST_F(Type1SerialProcessorTest, TestBasicRecvWithManualSendType1)
     client.send(msg, sizeof(msg));
     
     Time startTime = curtime();
-    processor->update(curtime());
+    processor->update(startTime);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
 

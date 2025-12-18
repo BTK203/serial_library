@@ -60,7 +60,7 @@ namespace serial_library
 
         auto syncFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_SYNC);
         SERIAL_LIB_ASSERT(syncFieldIt != frames.at(0).end(), "Frame 0 does not contain a sync!");
-        size_t syncFieldLoc = syncFieldIt - frames.at(0).begin();
+        // size_t syncFieldLoc = syncFieldIt - frames.at(0).begin();
 
         auto frameFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_FRAME);
         size_t frameFieldLoc = frameFieldIt - frames.at(0).begin();
