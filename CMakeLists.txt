@@ -17,6 +17,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Requirements
 #
 find_package(ament_cmake)
+find_package(rclcpp)
+find_package(std_msgs)
 find_package(Threads REQUIRED)
 
 #
@@ -34,6 +36,19 @@ add_library(serial_library ${serlib_src})
 target_include_directories(serial_library PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
+
+if(rclcpp_FOUND AND std_msgs_FOUND)
+    add_definitions(-DUSE_ROS)
+
+    if(ament_cmake_FOUND)
+        ament_target_dependencies(
+            serial_library
+            rclcpp
+            std_msgs)
+    endif()
+endif()
+
+
 
 install(TARGETS serial_library
     EXPORT serial_libraryTargets

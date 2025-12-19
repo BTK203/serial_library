@@ -12,6 +12,12 @@
 #include <sys/socket.h>
 #endif
 
+
+
+
+//
+// SerialTransceiver base class declaration
+//
 namespace serial_library
 {
     class SerialTransceiver
@@ -27,10 +33,12 @@ namespace serial_library
         virtual size_t recv(char *data, size_t numData) const = 0;
         virtual void deinit(void) = 0;
     };
+}
 
+#if defined(USE_LINUX)
 
-    #if defined(USE_LINUX)
-
+namespace serial_library
+{
     class LinuxSerialTransceiver : public SerialTransceiver
     {
         public:
@@ -116,9 +124,51 @@ namespace serial_library
             recvUDP,
             sendUDP;
     };
+}
 
-    #endif
+#endif
 
+#if defined(USE_ROS)
+
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/byte_multi_array.hpp>
+#include <deque>
+
+namespace serial_library
+{
+
+    class RosTransceiver : public SerialTransceiver
+    {
+        public:
+        RosTransceiver() = default;
+        RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns);
+        
+        bool init(void) override;
+        void send(const char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) const override;
+        void deinit(void) override;
+
+        private:
+        const std::string ns;
+        rclcpp::Node::SharedPtr n;
+        std::vector<char> latestMsg;
+
+        void rxCb(std_msgs::msg::ByteMultiArray::ConstSharedPtr msg);
+
+        rclcpp::Subscription<std_msgs::msg::ByteMultiArray>::SharedPtr rx;
+        rclcpp::Publisher<std_msgs::msg::ByteMultiArray>::SharedPtr tx;
+    };
+
+}
+
+#endif
+
+//
+// util funcs
+//
+
+namespace serial_library
+{
     char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle);
     size_t extractFieldFromBuffer(const char *src, size_t srcLen, SerialFrame frame, SerialFieldId field, char *dst, size_t dstLen);
     void insertFieldToBuffer(char *dst, size_t dstLen, SerialFrame frame, SerialFieldId field, const char *src, size_t srcLen);

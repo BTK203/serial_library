@@ -4,6 +4,10 @@
 #define USE_LINUX
 #endif
 
+#if defined(RCLCPP__RCLCPP_HPP_)
+#define ROS_PRESENT
+#endif
+
 #if defined(FORCE_ARDUINO)
 #define USE_ARDUINO
 #endif

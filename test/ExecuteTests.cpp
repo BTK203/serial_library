@@ -2,6 +2,16 @@
 
 int main(int argc, char **argv)
 {
+    #if defined(USE_ROS)
+    rclcpp::init(argc, argv);
+    #endif
+
     testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int result = RUN_ALL_TESTS();
+
+    #if defined(USE_ROS)
+    rclcpp::shutdown();
+    #endif
+
+    return result;
 }
