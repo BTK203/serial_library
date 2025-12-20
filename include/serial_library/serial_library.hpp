@@ -30,7 +30,7 @@ namespace serial_library
 
         virtual bool init(void) = 0;
         virtual void send(const char *data, size_t numData) const = 0;
-        virtual size_t recv(char *data, size_t numData) const = 0;
+        virtual size_t recv(char *data, size_t numData) = 0;
         virtual void deinit(void) = 0;
     };
 }
@@ -46,8 +46,8 @@ namespace serial_library
         LinuxSerialTransceiver(
             const std::string& fileName,
             int baud,
-            int minimumBytes,
-            int maximumTimeout,
+            int minimumBytes = 1,
+            int maximumTimeout = 0,
             int mode = O_RDWR,
             int bitsPerByte = CS8,
             bool twoStopBits = false,
@@ -55,7 +55,7 @@ namespace serial_library
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
-        size_t recv(char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
         private:
@@ -89,7 +89,7 @@ namespace serial_library
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
-        size_t recv(char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
         private:
@@ -116,7 +116,7 @@ namespace serial_library
 
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
-        size_t recv(char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
         private:
@@ -141,17 +141,18 @@ namespace serial_library
     {
         public:
         RosTransceiver() = default;
-        RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns);
+        RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz = 5);
         
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
-        size_t recv(char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
         private:
         const std::string ns;
+        const size_t maxQueueSize;
         rclcpp::Node::SharedPtr n;
-        std::vector<char> latestMsg;
+        std::deque<std::vector<char>> msgQ;
 
         void rxCb(std_msgs::msg::ByteMultiArray::ConstSharedPtr msg);
 

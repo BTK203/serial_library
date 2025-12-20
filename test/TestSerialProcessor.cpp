@@ -19,7 +19,7 @@ class TestTransceiver : public serial_library::SerialTransceiver
     }
 
     void send(const char *data, size_t numData) const { }
-    size_t recv(char *data, size_t numData) const { return 0; }
+    size_t recv(char *data, size_t numData) { return 0; }
     void deinit(void) { }
 
     private:

@@ -3,12 +3,14 @@
 #if defined(USE_LINUX) && USE_ROS
 
 using namespace std::placeholders;
+using namespace std::chrono_literals;
 
 namespace serial_library
 {
     
-    RosTransceiver::RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns)
+    RosTransceiver::RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz)
     : ns(ns),
+      maxQueueSize(maxQSz),
       n(node) { }
 
     bool RosTransceiver::init()
@@ -29,8 +31,22 @@ namespace serial_library
         tx->publish(msg);
     }
 
-    size_t RosTransceiver::recv(char *data, size_t numData) const
+    size_t RosTransceiver::recv(char *data, size_t numData)
     {
+        rclcpp::Time startTime = n->get_clock()->now();
+        while(msgQ.size() == 0 && n->get_clock()->now() - startTime < 1s)
+        {
+            rclcpp::spin_some(n);
+        }
+
+        std::vector<char> latestMsg = {};
+        while(msgQ.size() > 0)
+        {
+            std::vector<char> msg = msgQ.front();
+            latestMsg.insert(latestMsg.end(), msg.begin(), msg.end());
+            msgQ.pop_front();
+        }
+
         size_t nbytes = latestMsg.size();
         if(nbytes > numData)
         {
@@ -48,7 +64,15 @@ namespace serial_library
 
     void RosTransceiver::rxCb(std_msgs::msg::ByteMultiArray::ConstSharedPtr msg)
     {
-        latestMsg.assign(msg->data.begin(), msg->data.end());
+        std::vector<char> buf(msg->data.begin(), msg->data.end());
+        if(msgQ.size() > maxQueueSize)
+        {
+            msgQ.pop_front();
+            RCLCPP_WARN_THROTTLE(n->get_logger(), *n->get_clock(), 1000, 
+                "Discarded message because queue length of %zu was exceeded", msgQ.size());
+        }
+
+        msgQ.push_back(buf);
     }
 }
 

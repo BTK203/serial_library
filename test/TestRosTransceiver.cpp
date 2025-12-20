@@ -54,9 +54,9 @@ TEST_F(RosTransceiverTest, TestRosTransceiver_Rx)
     ASSERT_EQ(recvd, sizeof(s1));
     ASSERT_EQ(memcmp(buf, s1, recvd), 0);
 
-    // //test that buffer clears
-    // recvd = trans->recv(buf, sizeof(buf));
-    // ASSERT_EQ(recvd, 0);
+    //test that buffer clears
+    recvd = trans->recv(buf, sizeof(buf));
+    ASSERT_EQ(recvd, 0);
 
     //test receiving longer message
     char s2[] = "hello world!";
@@ -67,10 +67,10 @@ TEST_F(RosTransceiverTest, TestRosTransceiver_Rx)
     ASSERT_EQ(recvd, sizeof(s2));
     ASSERT_EQ(memcmp(buf, s2, recvd), 0);
 
-    // //test that buffer clears
-    // rclcpp::spin_some(n);
-    // recvd = trans->recv(buf, sizeof(buf));
-    // ASSERT_EQ(recvd, 0);
+    //test that buffer clears
+    rclcpp::spin_some(n);
+    recvd = trans->recv(buf, sizeof(buf));
+    ASSERT_EQ(recvd, 0);
 }
 
 TEST_F(RosTransceiverTest, TestRosTransceiver_Tx)

@@ -106,7 +106,7 @@ namespace serial_library
     }
 
 
-    size_t LinuxSerialTransceiver::recv(char *data, size_t numData) const
+    size_t LinuxSerialTransceiver::recv(char *data, size_t numData)
     {
         memset(data, 0, numData);
         if(initialized)

@@ -21,7 +21,7 @@ namespace serial_library  {
         sendUDP.send(data, numData);
     }
 
-    size_t LinuxDualUDPTransceiver::recv(char *data, size_t numData) const
+    size_t LinuxDualUDPTransceiver::recv(char *data, size_t numData)
     {
         return recvUDP.recv(data, numData);
     }

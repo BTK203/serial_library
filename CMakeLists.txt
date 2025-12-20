@@ -48,10 +48,15 @@ if(rclcpp_FOUND AND std_msgs_FOUND)
     endif()
 endif()
 
-
+add_executable(transceiver_bridge src/tools/TransceiverBridge.cpp)
+target_link_libraries(transceiver_bridge PUBLIC 
+    serial_library)
 
 install(TARGETS serial_library
     EXPORT serial_libraryTargets
+    DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS transceiver_bridge
     DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/

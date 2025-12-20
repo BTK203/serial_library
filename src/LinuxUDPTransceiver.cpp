@@ -127,7 +127,7 @@ namespace serial_library
     }
 
 
-    size_t LinuxUDPTransceiver::recv(char *data, size_t numData) const
+    size_t LinuxUDPTransceiver::recv(char *data, size_t numData)
     {
         size_t ret = ::recv(sock, data, numData, 0);
         if((ssize_t) ret == -1)
