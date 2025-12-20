@@ -47,8 +47,8 @@ serial_library::SerialTransceiver::SharedPtr initRosTransceiverWithArgs(int argc
 serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     // need to define these args
-    // const std::string& fileName,
-    // int baud,
+    // const std::string& fileName
+    // int baud
 
     if(argc <= *cursor + 2)
     {

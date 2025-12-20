@@ -4,8 +4,9 @@
 #define USE_LINUX
 #endif
 
-#if defined(RCLCPP__RCLCPP_HPP_)
-#define ROS_PRESENT
+// this macro ensures that the ros classes are defined if a project using this library includes ros
+#if defined(RCLCPP__RCLCPP_HPP_) && !defined(USE_ROS) 
+#define USE_ROS
 #endif
 
 #if defined(FORCE_ARDUINO)

@@ -1,6 +1,6 @@
 #include "serial_library/serial_library.hpp"
 
-#if defined(USE_LINUX) && USE_ROS
+#if defined(USE_LINUX) && defined(USE_ROS)
 
 using namespace std::placeholders;
 using namespace std::chrono_literals;

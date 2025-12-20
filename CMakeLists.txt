@@ -31,7 +31,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 #
 
 file(GLOB serlib_src src/*.cpp)
-add_library(serial_library ${serlib_src})
+add_library(serial_library SHARED ${serlib_src})
 
 target_include_directories(serial_library PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
