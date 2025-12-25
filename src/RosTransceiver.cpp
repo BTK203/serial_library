@@ -33,12 +33,6 @@ namespace serial_library
 
     size_t RosTransceiver::recv(char *data, size_t numData)
     {
-        rclcpp::Time startTime = n->get_clock()->now();
-        while(msgQ.size() == 0 && n->get_clock()->now() - startTime < 1s)
-        {
-            rclcpp::spin_some(n);
-        }
-
         std::vector<char> latestMsg = {};
         while(msgQ.size() > 0)
         {

@@ -28,7 +28,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 #
 # Compile src files
-#
+#serial_library
 
 file(GLOB serlib_src src/*.cpp)
 add_library(serial_library SHARED ${serlib_src})
@@ -49,12 +49,13 @@ if(rclcpp_FOUND AND std_msgs_FOUND)
 endif()
 
 add_executable(transceiver_bridge src/tools/TransceiverBridge.cpp)
-target_link_libraries(transceiver_bridge PUBLIC 
-    serial_library)
+target_link_libraries(transceiver_bridge serial_library)
 
 install(TARGETS serial_library
-    EXPORT serial_libraryTargets
-    DESTINATION lib/${PROJECT_NAME})
+        EXPORT serial_libraryTargets
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
 
 install(TARGETS transceiver_bridge
     DESTINATION lib/${PROJECT_NAME})
