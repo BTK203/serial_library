@@ -8,18 +8,19 @@ using namespace std::chrono_literals;
 namespace serial_library
 {
     
-    RosTransceiver::RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz)
+    RosTransceiver::RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz, bool isBridge)
     : ns(ns),
       maxQueueSize(maxQSz),
+      isBridge(isBridge),
       n(node) { }
 
     bool RosTransceiver::init()
     {
         rx = n->create_subscription<std_msgs::msg::ByteMultiArray>(
-            ns + "/rx", 10, std::bind(&RosTransceiver::rxCb, this, _1));
+            ns + (isBridge ? "/tx" : "/rx"), 10, std::bind(&RosTransceiver::rxCb, this, _1));
         
         tx = n->create_publisher<std_msgs::msg::ByteMultiArray>(
-            ns + "/tx", 10);
+            ns + (isBridge ? "/rx" : "/tx"), 10);
 
         return true;
     }

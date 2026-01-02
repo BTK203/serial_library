@@ -141,7 +141,7 @@ namespace serial_library
     {
         public:
         RosTransceiver() = default;
-        RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz = 5);
+        RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz = 5, bool isBridge = false);
         
         bool init(void) override;
         void send(const char *data, size_t numData) const override;
@@ -151,6 +151,7 @@ namespace serial_library
         private:
         const std::string ns;
         const size_t maxQueueSize;
+        const bool isBridge;
         rclcpp::Node::SharedPtr n;
         std::deque<std::vector<char>> msgQ;
 
@@ -247,6 +248,9 @@ namespace serial_library
     class ProtectedResource
     {
         public:
+        typedef std::shared_ptr<ProtectedResource> SharedPtr;
+        typedef std::unique_ptr<ProtectedResource> UniquePtr;
+        ProtectedResource() = default;
         ProtectedResource(std::unique_ptr<T> resource)
         : resource(std::move(resource)) { }
 
@@ -303,6 +307,16 @@ namespace serial_library
         #endif
 
         SerialProcessor() = default;
+
+        SerialProcessor(
+            const SerialFramesMap& frames,
+            const SerialFrameId& defaultFrame,
+            const char syncValue[],
+            size_t syncValueLen,
+            bool switchEndianness = false,
+            const SerialProcessorCallbacks& callbacks = DEFAULT_CALLBACKS,
+            const std::string& debugName = "SerialProcessor");
+
         SerialProcessor(
             std::unique_ptr<SerialTransceiver> transceiver,
             const SerialFramesMap& frames,
@@ -315,6 +329,8 @@ namespace serial_library
         
         ~SerialProcessor();
 
+        bool hasTransceiver();
+        void setTransceiver(SerialTransceiver::UniquePtr& transceiver);
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
         Time getLastMsgRecvTime(void) const;
@@ -343,6 +359,8 @@ namespace serial_library
         unsigned short failedOfLastTenMessages();
 
         private:
+        void ctorFunc(const char syncValue[MAX_DATA_BYTES], size_t syncLen);
+
         // regular member vars
         char msgBuffer[PROCESSOR_BUFFER_SIZE]; // update() only
         char updateChecksumlessBuffer[PROCESSOR_BUFFER_SIZE]; //update() only
@@ -371,4 +389,39 @@ namespace serial_library
         ProtectedResource<SerialValuesMap> valueMapResource;
         ProtectedResource<SerialTransceiver> transceiverResource;
     };
+
+    #if defined(USE_ROS)
+    class SerlibRosNode : public rclcpp::Node
+    {
+        public:
+        typedef std::shared_ptr<SerlibRosNode> SharedPtr;
+        typedef std::unique_ptr<SerlibRosNode> UniquePtr;
+        typedef std::weak_ptr<SerlibRosNode> WeakPtr;
+
+        SerlibRosNode(
+            const std::string& name,
+            const rclcpp::NodeOptions& options,
+            SerialProcessor::SharedPtr& proc);
+
+        SerlibRosNode(
+            const std::string& name,
+            const rclcpp::NodeOptions& options);
+        
+        protected:
+        bool hasProcessor();
+        void setProcessor(const SerialProcessor::SharedPtr& proc);
+        SerialProcessor::SharedPtr processor();
+        void update();
+
+        private:
+        void _initParams();
+        void _addTransceiver(const SerialProcessor::SharedPtr& proc);
+        SerialProcessor::SharedPtr _processor;
+    };
+    #endif
+
 }
+
+
+
+    

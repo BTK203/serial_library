@@ -3,6 +3,29 @@
 namespace serial_library
 {
     SerialProcessor::SerialProcessor(
+        const SerialFramesMap& frames,
+        const SerialFrameId& defaultFrame,
+        const char syncValue[],
+        size_t syncValueLen,
+        bool switchEndianness,
+        const SerialProcessorCallbacks& callbacks,
+        const std::string& debugName)
+     : failedOfLastTen(0),
+       failedOfLastTenCounter(0),
+       totalOfLastTenCounter(0),
+       msgBufferCursorPos(0),
+       syncValueLen(syncValueLen),
+       frameMap(frames),
+       defaultFrame(defaultFrame),
+       switchEndianness(switchEndianness),
+       callbacks(callbacks),
+       debugName(debugName),
+       valueMapResource(std::make_unique<SerialValuesMap>())
+    {
+        ctorFunc(syncValue, syncValueLen);
+    }
+
+    SerialProcessor::SerialProcessor(
         std::unique_ptr<SerialTransceiver> transceivr,
         const SerialFramesMap& frames,
         const SerialFrameId& defaultFrame,
@@ -24,80 +47,41 @@ namespace serial_library
        valueMapResource(std::make_unique<SerialValuesMap>()),
        transceiverResource(std::move(transceivr))
     {
-        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
-        SERIAL_LIB_ASSERT(transceiver->init(), "Transceiver initialization failed!");
-        transceiverResource.unlockResource(std::move(transceiver));
-
-        memcpy(this->syncValue, syncValue, syncValueLen);
-        
-        //check that the frames include a sync and checksums are 16 bits
-        //TODO: must check all individual frames for a sync, not the frame ids
-        for(auto it = frames.begin(); it != frames.end(); it++)
-        {
-            SerialFrame frame = it->second;
-            if(findit(frame.begin(), frame.end(), FIELD_SYNC) == frame.end())
-            {
-                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "No sync field provided in frame " + to_string(it->first) + " of the map.");
-            }
-
-            size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
-            if(numChecksumBytes != 0 && numChecksumBytes != sizeof(Checksum))
-            {
-                THROW_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Support for non-" + to_string(sizeof(Checksum) * 8) + "-bit checksums is not implemented yet.");
-            }
-        }
-
-        //add sync value
-        SerialData syncData = serialDataFromString(syncValue, syncValueLen);
-        SerialDataStamped syncDataStamped;
-        syncDataStamped.data = syncData;
-        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
-        values->insert( {FIELD_SYNC, syncDataStamped} );
-        valueMapResource.unlockResource(std::move(values));
-        
-        SERIAL_LIB_ASSERT(frames.size() > 0, "Must have at least one frame");
-        SERIAL_LIB_ASSERT(frames.find(defaultFrame) != frames.end(), "Default frame must be contained within frames");
-
-        auto syncFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_SYNC);
-        SERIAL_LIB_ASSERT(syncFieldIt != frames.at(0).end(), "Frame 0 does not contain a sync!");
-        // size_t syncFieldLoc = syncFieldIt - frames.at(0).begin();
-
-        auto frameFieldIt = findit(frames.at(0).begin(), frames.at(0).end(), FIELD_FRAME);
-        size_t frameFieldLoc = frameFieldIt - frames.at(0).begin();
-
-        for(auto it = frames.begin(); it != frames.end(); it++)
-        {
-            auto iSyncIt = findit(it->second.begin(), it->second.end(), FIELD_SYNC);
-            auto iFrameIt = findit(it->second.begin(), it->second.end(), FIELD_FRAME);
-
-            // SERIAL_LIB_ASSERT((size_t) (iSyncIt - frames.at(i).begin()) == syncFieldLoc, "Sync fields not aligned!");
-            SERIAL_LIB_ASSERT((size_t) (iFrameIt - it->second.begin()) == frameFieldLoc, "Frame fields not aligned!");
-            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
-
-            //check that the sync is continuous
-            size_t syncFrameLen = 1;
-            while(iSyncIt != it->second.end())
-            {
-                auto nextSyncFieldIt = findit(iSyncIt + 1, it->second.end(), FIELD_SYNC);
-                if(nextSyncFieldIt != it->second.end())
-                {
-                    SERIAL_LIB_ASSERT(nextSyncFieldIt - iSyncIt == 1, "Sync frame is not continuous!");
-                    syncFrameLen++;
-                }
-
-                iSyncIt = nextSyncFieldIt;
-            }
-
-            SERIAL_LIB_ASSERT(syncFrameLen == syncValueLen, "Sync field length is not equal to the sync value length!");
-        }
+        ctorFunc(syncValue, syncValueLen);
     }
 
 
     SerialProcessor::~SerialProcessor()
     {
         SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
-        transceiver->deinit();
+        if(transceiver)
+        {
+            transceiver->deinit();
+        }
         transceiverResource.unlockResource(std::move(transceiver));
+    }
+
+
+    bool SerialProcessor::hasTransceiver()
+    {
+        SerialTransceiver::UniquePtr trans = transceiverResource.lockResource();
+        bool has = trans != nullptr;
+        transceiverResource.unlockResource(std::move(trans));
+        return has;
+    }
+
+
+    void SerialProcessor::setTransceiver(SerialTransceiver::UniquePtr& transceiver)
+    {
+        if(hasTransceiver())
+        {
+            SERLIB_LOG_ERROR("Cannot set transceiver because it is already set");
+        }
+
+        SerialTransceiver::UniquePtr activeTransceiver = transceiverResource.lockResource();
+        activeTransceiver = std::move(transceiver);
+        SERIAL_LIB_ASSERT(activeTransceiver->init(), "Transceiver initialization failed!");
+        transceiverResource.unlockResource(std::move(activeTransceiver));
     }
 
 
@@ -107,7 +91,7 @@ namespace serial_library
         SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
         if(!transceiver)
         {
-            SERLIB_LOG_ERROR("%s: Transceiver is NULL for some reason", debugName.c_str());
+            SERLIB_LOG_ERROR("%s: Transceiver is NULL. Please initialize using setTransceiver()", debugName.c_str());
             transceiverResource.unlockResource(std::move(transceiver));
             return;
         }
@@ -171,9 +155,9 @@ namespace serial_library
                 break;
             }
 
-            //parse for a frame id
+            //parse for a frame id if multiple frames exist or if the default frame contains a frame field
             bool hasFrameToUse = true;
-            if(frameMapSz > 1)
+            if(frameMapSz > 1 || findit(frameToUse.begin(), frameToUse.end(), FIELD_FRAME) != frameToUse.end())
             {
                 char frameIdBuf[MAX_DATA_BYTES] = {0};
                 size_t bytes = extractFieldFromBuffer(msgStart, msgBufferCursorPos, frameToUse, FIELD_FRAME, frameIdBuf, MAX_DATA_BYTES);
@@ -436,5 +420,76 @@ namespace serial_library
     unsigned short SerialProcessor::failedOfLastTenMessages()
     {
         return failedOfLastTen;
+    }
+
+    void SerialProcessor::ctorFunc(const char syncValue[MAX_DATA_BYTES], size_t syncLen)
+    {
+        SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
+        if(transceiver)
+        {
+            SERIAL_LIB_ASSERT(transceiver->init(), "Transceiver initialization failed!");
+        }
+
+        transceiverResource.unlockResource(std::move(transceiver));
+        memcpy(this->syncValue, syncValue, syncValueLen);
+        
+        //check that the frames include a sync and checksums are 16 bits
+        //TODO: must check all individual frames for a sync, not the frame ids
+        for(auto it = frameMap.begin(); it != frameMap.end(); it++)
+        {
+            SerialFrame frame = it->second;
+            if(findit(frame.begin(), frame.end(), FIELD_SYNC) == frame.end())
+            {
+                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "No sync field provided in frame " + to_string(it->first) + " of the map.");
+            }
+
+            size_t numChecksumBytes = countit(frame.begin(), frame.end(), FIELD_CHECKSUM);
+            if(numChecksumBytes != 0 && numChecksumBytes != sizeof(Checksum))
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Support for non-" + to_string(sizeof(Checksum) * 8) + "-bit checksums is not implemented yet.");
+            }
+        }
+
+        //add sync value
+        SerialData syncData = serialDataFromString(syncValue, syncValueLen);
+        SerialDataStamped syncDataStamped;
+        syncDataStamped.data = syncData;
+        std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
+        values->insert( {FIELD_SYNC, syncDataStamped} );
+        valueMapResource.unlockResource(std::move(values));
+        
+        SERIAL_LIB_ASSERT(frameMap.size() > 0, "Must have at least one frame");
+        SERIAL_LIB_ASSERT(frameMap.find(defaultFrame) != frameMap.end(), "Default frame must be contained within frames");
+
+        auto syncFieldIt = findit(frameMap.at(defaultFrame).begin(), frameMap.at(defaultFrame).end(), FIELD_SYNC);
+        SERIAL_LIB_ASSERT(syncFieldIt != frameMap.at(defaultFrame).end(), "Default frame does not contain a sync!");
+
+        auto frameFieldIt = findit(frameMap.at(defaultFrame).begin(), frameMap.at(defaultFrame).end(), FIELD_FRAME);
+        size_t frameFieldLoc = frameFieldIt - frameMap.at(defaultFrame).begin();
+
+        for(auto it = frameMap.begin(); it != frameMap.end(); it++)
+        {
+            auto iSyncIt = findit(it->second.begin(), it->second.end(), FIELD_SYNC);
+            auto iFrameIt = findit(it->second.begin(), it->second.end(), FIELD_FRAME);
+
+            SERIAL_LIB_ASSERT((size_t) (iFrameIt - it->second.begin()) == frameFieldLoc, "Frame fields not aligned!");
+            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
+
+            //check that the sync is continuous
+            size_t syncFrameLen = 1;
+            while(iSyncIt != it->second.end())
+            {
+                auto nextSyncFieldIt = findit(iSyncIt + 1, it->second.end(), FIELD_SYNC);
+                if(nextSyncFieldIt != it->second.end())
+                {
+                    SERIAL_LIB_ASSERT(nextSyncFieldIt - iSyncIt == 1, "Sync field is not continuous!");
+                    syncFrameLen++;
+                }
+
+                iSyncIt = nextSyncFieldIt;
+            }
+
+            SERIAL_LIB_ASSERT(syncFrameLen == syncValueLen, "Sync field length is not equal to the sync value length!");
+        }
     }
 }

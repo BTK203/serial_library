@@ -3,6 +3,23 @@
 #if defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 
+class SpinningRosTransceiver : public serial_library::RosTransceiver
+{
+    public:
+    SpinningRosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz = 5, bool isBridge = false)
+    : serial_library::RosTransceiver(node, ns, maxQSz, isBridge), n(node)
+    { }
+
+    size_t recv(char *data, size_t numData) override
+    {
+        rclcpp::spin_some(n);
+        return serial_library::RosTransceiver::recv(data, numData);
+    }
+
+    private:
+    rclcpp::Node::SharedPtr n;
+};
+
 serial_library::RosTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     //initialize ros
@@ -29,7 +46,7 @@ serial_library::RosTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, c
     rclcpp::Node::SharedPtr n = std::make_shared<rclcpp::Node>(nodeName);
     *cursor += 2;
     SERLIB_LOG_INFO("Creating ROS Transceiver with ns=%s", ns.c_str());
-    return std::make_shared<serial_library::RosTransceiver>(n, ns);
+    return std::make_shared<SpinningRosTransceiver>(n, ns, 5, true);
 }
 
 #else
@@ -55,8 +72,6 @@ serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWith
         SERLIB_LOG_ERROR("Not enough arguments for Linux Serial transceiver. Use transceiver_bridge ... linuxser [file] [baud]");
         return nullptr;
     }
-
-    SERLIB_LOG_INFO("argc %d cursor %d", argc, *cursor);
 
     std::string
         file(argv[*cursor + 1]),
