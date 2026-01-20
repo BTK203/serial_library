@@ -1,4 +1,7 @@
 #include "serial_library/serial_library.hpp"
+
+#if defined(USE_LINUX)
+
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netdb.h>
@@ -149,3 +152,5 @@ namespace serial_library
         close(sock);
     }
 }
+
+#endif

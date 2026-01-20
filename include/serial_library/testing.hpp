@@ -3,8 +3,6 @@
 #include "serial_library/serial_library.hpp"
 #include <gtest/gtest.h>
 
-#if defined(USE_LINUX)
-
 class LinuxTransceiverTest : public ::testing::Test
 {
     protected:
@@ -147,5 +145,3 @@ class CallbacksTest : public LinuxSerialProcessorTest
     std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
     serial_library::Checksum lastChksm;
 };
-
-#endif

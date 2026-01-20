@@ -3,8 +3,6 @@
 
 using namespace serial_library;
 
-#if defined(USE_LINUX)
-
 void LinuxTransceiverTest::SetUp()
 {
     // find HOME directory
@@ -115,5 +113,3 @@ std::string LinuxTransceiverTest::homeDir()
 {
     return home;
 }
-
-#endif

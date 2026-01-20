@@ -1,7 +1,9 @@
 #pragma once
 
-#if (__linux__ && !defined(FORCE_ARDUINO)) || defined(ENABLE_TESTING)
+#if __linux__ && !defined(FORCE_ARDUINO)
 #define USE_LINUX
+#elif _WIN32 == 1 || _WIN64 == 1
+#define USE_WINDOWS
 #endif
 
 // this macro ensures that the ros classes are defined if a project using this library includes ros
@@ -16,20 +18,18 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdbool.h>
-
-#if defined(USE_LINUX)
 #include <string>
 #include <map>
 #include <list>
 #include <vector>
 #include <set>
 #include <cstring>
+#include <csignal>
 #include <chrono>
 #include <mutex>
 #include <memory>
 #include <functional>
 #include <algorithm>
-#endif
 
 
 //
@@ -48,56 +48,55 @@ namespace serial_library
     typedef int SerialFieldId;
     typedef uint16_t Checksum;
 
-    #if defined(USE_LINUX)
-        typedef std::chrono::time_point<std::chrono::system_clock> Time;
-        typedef std::string string;
-        typedef std::mutex mutex;
+    typedef std::chrono::time_point<std::chrono::system_clock> Time;
+    typedef std::string string;
+    typedef std::mutex mutex;
 
-        template<typename K, typename V>
-        using pair = std::pair<K, V>;
-        
-        template<typename K, typename V>
-        using map = std::map<K, V>;
+    template<typename K, typename V>
+    using pair = std::pair<K, V>;
+    
+    template<typename K, typename V>
+    using map = std::map<K, V>;
 
-        template<typename T>
-        using list = std::list<T>;
+    template<typename T>
+    using list = std::list<T>;
 
-        template<typename T>
-        using vector = std::vector<T>;
+    template<typename T>
+    using vector = std::vector<T>;
 
-        template<typename T>
-        using set = std::set<T>;
+    template<typename T>
+    using set = std::set<T>;
 
-        template<typename T>
-        using NewMessageFunctionTemplate = std::function<void(const T&)>;
+    template<typename T>
+    using NewMessageFunctionTemplate = std::function<void(const T&)>;
 
-        typedef std::function<bool(const char*, size_t, Checksum)> ChecksumEvaluator;
-        typedef std::function<Checksum(const char*, size_t)> ChecksumGenerator;
-        
-        inline Time curtime()
-        {
-            return std::chrono::system_clock::now();
-        }
+    typedef std::function<bool(const char*, size_t, Checksum)> ChecksumEvaluator;
+    typedef std::function<Checksum(const char*, size_t)> ChecksumGenerator;
+    
+    inline Time curtime()
+    {
+        return std::chrono::system_clock::now();
+    }
 
-        template<typename InputIterator, typename T>
-        inline InputIterator findit(InputIterator first, InputIterator last, const T& val)
-        {
-            return std::find(first, last, val);
-        }
+    template<typename InputIterator, typename T>
+    inline InputIterator findit(InputIterator first, InputIterator last, const T& val)
+    {
+        return std::find(first, last, val);
+    }
 
-        template<typename InputIterator, typename T>
-        inline size_t countit(InputIterator first, InputIterator last, const T& val)
-        {
-            return std::count(first, last, val);
-        } 
+    template<typename InputIterator, typename T>
+    inline size_t countit(InputIterator first, InputIterator last, const T& val)
+    {
+        return std::count(first, last, val);
+    } 
 
-        template<typename T>
-        inline string to_string(const T& arg)
-        {
-            return std::to_string(arg);
-        }
+    template<typename T>
+    inline string to_string(const T& arg)
+    {
+        return std::to_string(arg);
+    }
 
-    #elif defined(USE_ARDUINO)
+    #if defined(USE_ARDUINO)
         #include "riptide_gyro/arduino_library.hpp"
 
         typedef long Time;

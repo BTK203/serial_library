@@ -1,7 +1,7 @@
-#include <rclcpp/rclcpp.hpp>
 #include "serial_library/serial_library.hpp"
 
 #if defined(USE_ROS)
+#include <rclcpp/rclcpp.hpp>
 
 using namespace std::chrono_literals;
 using namespace std::placeholders;

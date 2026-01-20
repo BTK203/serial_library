@@ -1,5 +1,7 @@
 #include "serial_library/serial_library.hpp"
 
+#if defined(USE_LINUX)
+
 namespace serial_library  {
     
     LinuxDualUDPTransceiver::LinuxDualUDPTransceiver(
@@ -33,3 +35,5 @@ namespace serial_library  {
     }
 
 }
+
+#endif

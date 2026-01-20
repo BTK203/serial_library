@@ -12,9 +12,6 @@
 #include <sys/socket.h>
 #endif
 
-
-
-
 //
 // SerialTransceiver base class declaration
 //
@@ -23,10 +20,8 @@ namespace serial_library
     class SerialTransceiver
     {
         public:
-        #if defined(USE_LINUX)
         typedef std::shared_ptr<SerialTransceiver> SharedPtr;
         typedef std::unique_ptr<SerialTransceiver> UniquePtr;
-        #endif
 
         virtual bool init(void) = 0;
         virtual void send(const char *data, size_t numData) const = 0;
@@ -301,10 +296,8 @@ namespace serial_library
     class SerialProcessor
     {
         public:
-        #if defined(USE_LINUX)
         typedef std::shared_ptr<SerialProcessor> SharedPtr;
         typedef std::unique_ptr<SerialProcessor> UniquePtr;
-        #endif
 
         SerialProcessor() = default;
 

@@ -29,8 +29,6 @@ enum SerlibLogLevel
 // actual code to handle logging
 //
 
-#if defined(USE_LINUX)
-
 #include <cstdarg>
 #include <stdio.h>
 
@@ -45,5 +43,3 @@ static void serlibLoggingFunc(SerlibLogLevel level, const char *fmt, ...)
         va_end(v);
     }
 }
-
-#endif

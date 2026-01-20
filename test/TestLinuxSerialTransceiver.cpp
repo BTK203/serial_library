@@ -1,7 +1,7 @@
 #include "serial_library/serial_library.hpp"
 #include "serial_library/testing.hpp"
 
-#if defined(USE_LINUX)
+#if (USE_LINUX)
 
 TEST_F(LinuxTransceiverTest, TestTransceiverRdWr)
 {

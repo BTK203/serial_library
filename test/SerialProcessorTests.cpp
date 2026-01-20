@@ -2,8 +2,6 @@
 
 using namespace serial_library;
 
-#if defined(USE_LINUX)
-
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
@@ -166,5 +164,3 @@ Checksum CallbacksTest::checksumGenerator(const char* msg, size_t len)
     lastChksm = sum;
     return sum;
 }
-
-#endif

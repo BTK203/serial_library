@@ -3,8 +3,6 @@
 
 using namespace serial_library;
 
-#if defined(USE_LINUX)
-
 using namespace std::chrono_literals;
 
 class TestTransceiver : public serial_library::SerialTransceiver
@@ -557,5 +555,3 @@ TEST(GenericType2SerialProcessorTest, TestConstructorTransceiverInitFailed)
         serial_library::SerialProcessor proc(std::move(badTrans), frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
 }
-
-#endif
