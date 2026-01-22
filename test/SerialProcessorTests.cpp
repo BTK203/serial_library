@@ -5,7 +5,7 @@ using namespace serial_library;
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
-bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, const Time& startTime)
+bool SerialProcessorTest::waitForFrame(SerialFrameId id, const Time& startTime)
 {
     Time now = curtime();
     while(now - startTime < 500ms)
@@ -24,15 +24,20 @@ bool LinuxSerialProcessorTest::waitForFrame(SerialFrameId id, const Time& startT
 }
 
 
-void Type1SerialProcessorTest::SetUp() 
+void SerialProcessorTest::SetUp()
 {
-    LinuxTransceiverTest::SetUp();
-    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "virtualsp1",
-        9600,
-        0, 
-        1);
-    
+    transceiver = std::make_unique<serial_library::IntraProcessTransceiver>();
+    client = std::make_unique<serial_library::IntraProcessTransceiver>();
+
+    transceiver->getChannel()->setPartner(client->getChannel());
+    client->getChannel()->setPartner(transceiver->getChannel());
+}
+
+
+void Type1SerialProcessorTest::SetUp() 
+{    
+    SerialProcessorTest::SetUp();
+
     frameMap = {
         {Type1SerialFrames1::TYPE_1_FRAME_1, 
             {
@@ -54,21 +59,9 @@ void Type1SerialProcessorTest::SetUp()
 }
 
 
-void Type1SerialProcessorTest::TearDown()
-{
-    LinuxTransceiverTest::TearDown();
-}
-
-
 void Type2SerialProcessorTest::SetUp() 
 {
-    LinuxTransceiverTest::SetUp();
-    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "virtualsp1",
-        9600,
-        0,
-        1);
-    
+    SerialProcessorTest::SetUp();
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
         std::move(transceiver),
@@ -78,23 +71,12 @@ void Type2SerialProcessorTest::SetUp()
         sizeof(syncValue));
 }
 
-
-void Type2SerialProcessorTest::TearDown()
-{
-    LinuxTransceiverTest::TearDown();
-}
-
-
 void CallbacksTest::SetUp() 
 {
+    SerialProcessorTest::SetUp();
+
     lastChksm = 0;
 
-    LinuxTransceiverTest::SetUp();
-    transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "virtualsp1",
-        9600,
-        0,
-        1);
     const char syncValue[1] = {'A'};
     processor = std::make_shared<serial_library::SerialProcessor>(
         std::move(transceiver),
@@ -104,12 +86,6 @@ void CallbacksTest::SetUp()
         sizeof(syncValue),
         false,
         getCallbacks());
-}
-
-
-void CallbacksTest::TearDown()
-{
-    LinuxTransceiverTest::TearDown();
 }
 
 

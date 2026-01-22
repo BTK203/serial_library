@@ -2,8 +2,18 @@
 
 #if __linux__ && !defined(FORCE_ARDUINO)
 #define USE_LINUX
+#define SERLIB_API
 #elif _WIN32 == 1 || _WIN64 == 1
 #define USE_WINDOWS
+    // dll import and export
+    #if defined(SERLIB_BUILD)
+    #pragma message("ass")
+    // #define SERLIB_API
+    #define SERLIB_API _declspec(dllexport)
+    #else
+    // #define SERLIB_API
+    #define SERLIB_API _declspec(dllimport)
+    #endif
 #endif
 
 // this macro ensures that the ros classes are defined if a project using this library includes ros
@@ -125,21 +135,21 @@ namespace serial_library
     //
     // exception
     //
-    class SerialLibraryException : public std::runtime_error
+    class SERLIB_API SerialLibraryException : public std::runtime_error
     {
         public:
         SerialLibraryException(const string& error)
         : std::runtime_error(error.c_str()) { }
     };
 
-    class NonFatalSerialLibraryException : public SerialLibraryException
+    class SERLIB_API NonFatalSerialLibraryException : public SerialLibraryException
     {
         public:
         NonFatalSerialLibraryException(const string& error)
         : SerialLibraryException(error) { }
     };
 
-    class FatalSerialLibraryException : public SerialLibraryException
+    class SERLIB_API FatalSerialLibraryException : public SerialLibraryException
     {
         public:
         FatalSerialLibraryException(const string& error)
@@ -171,7 +181,7 @@ namespace serial_library
     typedef vector<SerialFieldId> SerialFrame;
     typedef map<SerialFrameId, SerialFrame> SerialFramesMap;
 
-    struct SerialData
+    struct SERLIB_API SerialData
     {
         SerialData() = default;
         SerialData(const SerialData& other)
@@ -195,7 +205,7 @@ namespace serial_library
         }
     };
 
-    struct SerialDataStamped
+    struct SERLIB_API SerialDataStamped
     {
         SerialDataStamped() = default;
         SerialDataStamped(const SerialDataStamped& other)
@@ -213,13 +223,12 @@ namespace serial_library
         }
     };
 
-    struct SerialValuesPair
+    struct SERLIB_API SerialValuesPair
     {
         SerialFieldId id;
         SerialDataStamped data;
     };
 
     typedef map<SerialFieldId, SerialDataStamped> SerialValuesMap;
-
     typedef NewMessageFunctionTemplate<SerialValuesMap> NewMsgFunc;
 }

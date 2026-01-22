@@ -2,6 +2,24 @@
 
 namespace serial_library
 {
+    #if defined(USE_WINDOWS)
+
+    std::string getWindowsMsgAsString(DWORD error)
+    {
+        static char wMsgBuf[1024];
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, LANG_ENGLISH, wMsgBuf, sizeof(wMsgBuf), NULL);
+        return std::string(wMsgBuf);
+    }
+
+    #endif
+
+    string wStringToString(const std::wstring& wstr)
+    {
+        static char b[1024];
+        std::wcstombs(b, wstr.c_str(), sizeof(b));
+        return string(b);
+    }
+
     char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle)
     {
         char *search = (char*) haystack;
@@ -120,15 +138,9 @@ namespace serial_library
     SerialData serialDataFromString(const char* str, size_t numData)
     {
         SerialData data;
-        strcpy(data.data, str);
+        memcpy(data.data, str, numData);
         data.numData = numData;
         return data;
-    }
-
-
-    SerialData serialDataFromString(const string& data)
-    {
-        return serialDataFromString(data.c_str(), data.length());
     }
 
 
@@ -230,9 +242,3 @@ namespace serial_library
         return normalizedFrameMap;
     }
 }
-
-
-// SerialData& operator=(const SerialData& other)
-// {
-    
-// }

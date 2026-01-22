@@ -11,9 +11,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # this ensures that all symbols are properly exported if using Windows. Without this, programs linking the library
 # will fail to find the .lib import library
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
+# if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+#     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# endif()
 
 #
 # Requirements
@@ -33,13 +33,16 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 #
 
 file(GLOB serlib_src src/*.cpp)
-add_library(serial_library SHARED ${serlib_src})
+# add_library(serial_library SHARED ${serlib_src})
+add_library(serial_library ${serlib_src})
 
 # gets rid of annoying automoc warning that qt likes to throw
 set_target_properties(serial_library PROPERTIES
     AUTOMOC OFF
     AUTOUIC OFF
     AUTORCC OFF)
+
+target_compile_definitions(serial_library PRIVATE SERLIB_BUILD)
 
 target_include_directories(serial_library PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -56,14 +59,14 @@ if(rclcpp_FOUND AND std_msgs_FOUND)
     endif()
 endif()
 
-#add_executable(transceiver_bridge src/tools/TransceiverBridge.cpp)
+add_executable(transceiver_bridge src/tools/TransceiverBridge.cpp)
 
-#set_target_properties(transceiver_bridge PROPERTIES
-#    AUTOMOC OFF
-#    AUTOUIC OFF
-#    AUTORCC OFF)
+set_target_properties(transceiver_bridge PROPERTIES
+   AUTOMOC OFF
+   AUTOUIC OFF
+   AUTORCC OFF)
 
-#target_link_libraries(transceiver_bridge serial_library)
+target_link_libraries(transceiver_bridge serial_library)
 
 install(TARGETS serial_library
         EXPORT serial_libraryTargets
@@ -71,13 +74,8 @@ install(TARGETS serial_library
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
 
-# install(TARGETS serial_library
-#         EXPORT serial_libraryTargets
-#         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-#install(TARGETS transceiver_bridge
-#    DESTINATION lib/${PROJECT_NAME})
+install(TARGETS transceiver_bridge
+   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/
     DESTINATION include)

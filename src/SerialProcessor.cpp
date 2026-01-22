@@ -473,7 +473,7 @@ namespace serial_library
             auto iFrameIt = findit(it->second.begin(), it->second.end(), FIELD_FRAME);
 
             SERIAL_LIB_ASSERT((size_t) (iFrameIt - it->second.begin()) == frameFieldLoc, "Frame fields not aligned!");
-            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
+            SERIAL_LIB_ASSERT(iFrameIt == it->second.end() || findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
 
             //check that the sync is continuous
             size_t syncFrameLen = 1;
