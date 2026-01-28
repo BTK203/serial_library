@@ -26,7 +26,12 @@ class LinuxTransceiverTest : public TransceiverTest
 
 #endif
 
+#if defined(USE_WINDOWS)
 
+class WindowsTransceiverTest : public TransceiverTest
+{ };
+
+#endif
 
 class SerialProcessorTest : public TransceiverTest
 {
