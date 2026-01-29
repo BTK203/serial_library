@@ -170,12 +170,12 @@ namespace serial_library
 {
     SERLIB_API std::string getWindowsMsgAsString(DWORD error);
 
-    class SERLIB_API WindowsSerialTransceiver : public SerialTransceiver 
+    class WindowsSerialTransceiver : public SerialTransceiver 
     {
         public:
         WindowsSerialTransceiver(
             const std::string& name,
-            DWORD baud = BAUD_115200,
+            DWORD baud = CBR_115200,
             DWORD readTimeout = 0,
             DWORD mode = GENERIC_READ | GENERIC_WRITE,
             DWORD bitsPerByte = 8,
@@ -406,6 +406,7 @@ namespace serial_library
 
         bool hasTransceiver();
         void setTransceiver(SerialTransceiver::UniquePtr& transceiver);
+        void resetTransceiver();
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
         Time getLastMsgRecvTime(void) const;

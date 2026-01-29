@@ -1,4 +1,5 @@
 #include "serial_library/serial_library.hpp"
+#include <iostream>
 
 #if defined(USE_WINDOWS)
 
@@ -15,7 +16,7 @@ namespace serial_library
             DWORD bitsPerByte,
             DWORD stopBits,
             DWORD parityBit)
-    : _portName(name),
+    : _portName("\\\\.\\" + name),
       _baud(baud),
       _readTimeout(readTimeout),
       _mode(mode),
@@ -29,11 +30,10 @@ namespace serial_library
     {
         // open the port
         _port = CreateFileA(_portName.c_str(), _mode, 0, NULL, OPEN_EXISTING, 0, NULL);
-
         if(_port == INVALID_HANDLE_VALUE)
         {
             _initialized = false;
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not open COM port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
+            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Could not open COM port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
         }
 
         // setting parameters
@@ -42,37 +42,38 @@ namespace serial_library
 
         params.DCBlength = sizeof(params);
         status = GetCommState(_port, &params);
-
         if(!status)
         {
             _initialized = false;
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not obtain COM port params for modification for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
+            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Could not obtain COM port params for modification for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
         }
 
         params.BaudRate = _baud;
         params.ByteSize = _bitsPerByte;
         params.StopBits = _stopBits;
         params.Parity = _parityBit;
+        params.fBinary = TRUE;
+        
+        PurgeComm(_port, PURGE_RXCLEAR | PURGE_TXCLEAR);
 
         status = SetCommState(_port, &params);
-
         if(!status)
         {
             _initialized = false;
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not set params for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
+            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Could not set params for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
         }
 
         // setting timeout information
         COMMTIMEOUTS timeouts = {0};
-        timeouts.ReadIntervalTimeout = _readTimeout;
-        timeouts.ReadTotalTimeoutMultiplier = 1;
-        timeouts.ReadTotalTimeoutConstant = 0;
+        timeouts.ReadIntervalTimeout = MAXDWORD;
+        timeouts.ReadTotalTimeoutMultiplier = 0;
+        timeouts.ReadTotalTimeoutConstant = _readTimeout;
 
         status = SetCommTimeouts(_port, &timeouts);
 
         if(!status)
         {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not set timeout information for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
+            THROW_NON_FATAL_SERIAL_LIB_EXCEPTION("Could not set timeout information for port " + _portName + ": " + getWindowsMsgAsString(GetLastError()));
         }
 
         // if we got here then we done!
@@ -100,7 +101,6 @@ namespace serial_library
 
     size_t WindowsSerialTransceiver::recv(char *data, size_t numData)
     {
-        bool status;
         DWORD bsRead = 0;
 
         if(_initialized)

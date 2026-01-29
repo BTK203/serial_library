@@ -183,7 +183,9 @@ namespace serial_library
 
     struct SERLIB_API SerialData
     {
-        SerialData() = default;
+        SerialData()
+        : numData(0) { }
+
         SerialData(const SerialData& other)
         : numData(other.numData)
         {

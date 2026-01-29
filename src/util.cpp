@@ -6,9 +6,18 @@ namespace serial_library
 
     std::string getWindowsMsgAsString(DWORD error)
     {
-        static char wMsgBuf[1024];
-        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, LANG_ENGLISH, wMsgBuf, sizeof(wMsgBuf), NULL);
-        return std::string(wMsgBuf);
+        LPVOID lpBuf;
+        FormatMessage(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+            FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            error,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR) &lpBuf,
+            0, NULL);
+
+        return std::string(reinterpret_cast<char*>(lpBuf));
     }
 
     #endif
