@@ -19,7 +19,7 @@ class TestTransceiver : public serial_library::SerialTransceiver
     }
 
     void send(const char *data, size_t numData) const { }
-    size_t recv(char *data, size_t numData) const { return 0; }
+    size_t recv(char *data, size_t numData) { return 0; }
     void deinit(void) { }
 
     private:
@@ -42,7 +42,7 @@ TEST_F(Type1SerialProcessorTest, TestBasicRecvWithManualSendType1)
     client.send(msg, sizeof(msg));
     
     Time startTime = curtime();
-    processor->update(curtime());
+    processor->update(startTime);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
 

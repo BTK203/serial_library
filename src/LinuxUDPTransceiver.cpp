@@ -10,9 +10,9 @@ namespace serial_library
      : address(address),
        port(port),
        recvTimeoutSeconds(recvTimeoutSeconds),
+       allowAddrReuse(allowAddrReuse),
        skipBind(skipBind),
        skipConnect(skipConnect),
-       allowAddrReuse(allowAddrReuse),
        sock(-1) { }
 
 
@@ -120,17 +120,17 @@ namespace serial_library
     void LinuxUDPTransceiver::send(const char *data, size_t numData) const
     {
         size_t ret = ::send(sock, data, numData, 0);
-        if(ret == -1)
+        if((ssize_t) ret == -1)
         {
             SERLIB_LOG_DEBUG("send() to %s failed: %s", address.c_str(), strerror(errno));
         }
     }
 
 
-    size_t LinuxUDPTransceiver::recv(char *data, size_t numData) const
+    size_t LinuxUDPTransceiver::recv(char *data, size_t numData)
     {
         size_t ret = ::recv(sock, data, numData, 0);
-        if(ret == -1)
+        if((ssize_t) ret == -1)
         {
             if(errno != EAGAIN)
             {

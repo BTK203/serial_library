@@ -4,6 +4,11 @@
 #define USE_LINUX
 #endif
 
+// this macro ensures that the ros classes are defined if a project using this library includes ros
+#if defined(RCLCPP__RCLCPP_HPP_) && !defined(USE_ROS) 
+#define USE_ROS
+#endif
+
 #if defined(FORCE_ARDUINO)
 #define USE_ARDUINO
 #endif
@@ -44,7 +49,6 @@ namespace serial_library
     typedef uint16_t Checksum;
 
     #if defined(USE_LINUX)
-
         typedef std::chrono::time_point<std::chrono::system_clock> Time;
         typedef std::string string;
         typedef std::mutex mutex;
