@@ -145,7 +145,7 @@ namespace serial_library
     }
 
 
-    void LinuxSocketpairTransceiver::send(const char *data, size_t numData) const
+    void LinuxSocketpairTransceiver::send(const char *data, size_t numData)
     {
         if(_initialized)
         {

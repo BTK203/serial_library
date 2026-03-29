@@ -410,7 +410,7 @@ namespace serial_library
             {
                 //if it is a custom type, throw exception because it is undefined
                 valueMapResource.unlockResource(std::move(values));
-                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Cannot send serial frame because it is missing field " + to_string(*fieldIt));
+                THROW_NON_FATAL_SERIAL_LIB_EXCEPTION(debugName + "Cannot send serial frame " + std::to_string(frameId) + " because it is missing field " + to_string(*fieldIt));
             }
 
             insertFieldToBuffer(

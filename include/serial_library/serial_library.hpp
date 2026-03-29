@@ -32,8 +32,6 @@ namespace serial_library
 
     class SERLIB_API IntraProcessChannel
     {
-        friend class IntraProcessChannel;
-
         public:
         IntraProcessChannel() = default;
         void setPartner(const std::shared_ptr<IntraProcessChannel>& partner);
@@ -170,7 +168,7 @@ namespace serial_library
         void postForkInit();
 
         bool init(void) override;
-        void send(const char *data, size_t numData) const override;
+        void send(const char *data, size_t numData) override;
         size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 

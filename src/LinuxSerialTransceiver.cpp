@@ -92,7 +92,7 @@ namespace serial_library
     }
 
 
-    void LinuxSerialTransceiver::send(const char *data, size_t numData) const
+    void LinuxSerialTransceiver::send(const char *data, size_t numData)
     {
         if(initialized)
         {

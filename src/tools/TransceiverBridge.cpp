@@ -86,14 +86,79 @@ serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWith
 
 serial_library::LinuxUDPTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
-    SERLIB_LOG_ERROR("Linux UDP Transceiver support is not implemented yet");
-    return nullptr;
+    // need to define these args
+    // const std::string& address
+    // int port
+
+    if(argc <= *cursor + 2)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux UDP transceiver. Use transceiver_bridge ... linuxudp [address] [port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        portStr(argv[*cursor + 2]);
+    
+    int port = std::stoi(portStr);
+
+    *cursor += 3;
+    SERLIB_LOG_INFO("Creating Linux UDP transceiver with address=%s, port=%d", address.c_str(), port);
+    return std::make_shared<serial_library::LinuxUDPTransceiver>(address, port);
 }
 
 serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
-    SERLIB_LOG_ERROR("Linux Dual UDP Transceiver support is not implemented yet");
-    return nullptr;
+    // need to define these args
+    // const std::string& address
+    // int recvPort
+    // int sendPort
+
+    if(argc <= *cursor + 3)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Dual UDP transceiver. Use transceiver_bridge ... linuxdudp [address] [recv-port] [send-port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        recvPortStr(argv[*cursor + 2]),
+        sendPortStr(argv[*cursor + 3]);
+
+    int
+        recvPort = std::stoi(recvPortStr),
+        sendPort = std::stoi(sendPortStr);
+
+    *cursor += 4;
+    SERLIB_LOG_INFO("Creating Linux Dual-UDP transceiver with address=%s, recv-port=%d, send-port=%d", address.c_str(), recvPort, sendPort);
+    return std::make_shared<serial_library::LinuxDualUDPTransceiver>(address, recvPort, sendPort);
+}
+
+//defines a LinuxDualUDPTransceiver using two args - address and recv port. send port is recv port + 1
+serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
+{
+    // need to define these args
+    // const std::string& address
+    // int recvPort
+    // int sendPort
+
+    if(argc <= *cursor + 2)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Dual UDP transceiver. Use transceiver_bridge ... linuxdudp2 [address] [recv-port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        recvPortStr(argv[*cursor + 2]);
+
+    int
+        recvPort = std::stoi(recvPortStr),
+        sendPort = recvPort + 1;
+
+    *cursor += 3;
+    SERLIB_LOG_INFO("Creating Linux Dual-UDP transceiver with address=%s, recv-port=%d, send-port=%d", address.c_str(), recvPort, sendPort);
+    return std::make_shared<serial_library::LinuxDualUDPTransceiver>(address, recvPort, sendPort);
 }
 
 serial_library::LinuxSocketpairTransceiver::SharedPtr initLinuxSocketpairTransceiverWithArgs(int argc, char **argv, int *cursor)
@@ -142,7 +207,7 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     if(argc <= *cursor)
     {
         SERLIB_LOG_ERROR("Not enough arguments to init a transceiver; no transceiver type found. Use transceiver_bridge ... [transc_name] [transc_args...]");
-        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser, socketpair");
+        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser, socketpair, linuxudp, linuxdudp, linuxdudp2");
         return nullptr;
     }
 
@@ -160,6 +225,9 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     } else if(tName == "linuxdudp")
     {
         return initLinuxDualUDPTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxdudp2")
+    {
+        return initLinuxDualUDPTransceiverWithTwoArgs(argc, argv, cursor);
     } else if(tName == "socketpair")
     {
         return initLinuxSocketpairTransceiverWithArgs(argc, argv, cursor);

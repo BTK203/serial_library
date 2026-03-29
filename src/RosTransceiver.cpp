@@ -25,7 +25,7 @@ namespace serial_library
         return true;
     }
 
-    void RosTransceiver::send(const char *data, size_t numData) const
+    void RosTransceiver::send(const char *data, size_t numData)
     {
         std_msgs::msg::ByteMultiArray msg;
         msg.data.assign(data, data + numData);

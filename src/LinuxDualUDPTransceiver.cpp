@@ -18,7 +18,7 @@ namespace serial_library  {
         return recvUDP.init() && sendUDP.init();
     }
 
-    void LinuxDualUDPTransceiver::send(const char *data, size_t numData) const
+    void LinuxDualUDPTransceiver::send(const char *data, size_t numData)
     {
         sendUDP.send(data, numData);
     }

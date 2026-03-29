@@ -9,12 +9,6 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# this ensures that all symbols are properly exported if using Windows. Without this, programs linking the library
-# will fail to find the .lib import library
-# if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-#     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-# endif()
-
 #
 # Requirements
 #
@@ -33,8 +27,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 #
 
 file(GLOB serlib_src src/*.cpp)
-# add_library(serial_library SHARED ${serlib_src})
-add_library(serial_library ${serlib_src})
+add_library(serial_library SHARED ${serlib_src})
 
 # gets rid of annoying automoc warning that qt likes to throw
 set_target_properties(serial_library PROPERTIES

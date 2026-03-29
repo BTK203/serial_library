@@ -120,7 +120,7 @@ namespace serial_library
     }
 
 
-    void LinuxUDPTransceiver::send(const char *data, size_t numData) const
+    void LinuxUDPTransceiver::send(const char *data, size_t numData)
     {
         size_t ret = ::send(sock, data, numData, 0);
         if((ssize_t) ret == -1)
