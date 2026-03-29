@@ -78,7 +78,7 @@ namespace serial_library
             }
 
             // set blocking if desired on fds[0]
-            flags = fcntl(fds[0], F_GETFD);
+            flags = fcntl(fds[0], F_GETFL);
             if(flags == -1)
             {
                 THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not get flags for parent socket: " + string(strerror(errno)));
@@ -91,7 +91,7 @@ namespace serial_library
                 flags |= O_NONBLOCK;
             }
 
-            if(fcntl(fds[0], F_SETFD, flags) == -1)
+            if(fcntl(fds[0], F_SETFL, flags) == -1)
             {
                 THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not set new flags for parent socket: " + string(strerror(errno)));
                 _initialized = false;
@@ -112,16 +112,32 @@ namespace serial_library
         }
 
         flags &= ~FD_CLOEXEC;
-        if(!_blocking)
-        {
-            flags |= O_NONBLOCK;
-        }
         
         if(fcntl(_childFd, F_SETFD, flags) == -1)
         {
             THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not set new flags for child socket: " + string(strerror(errno)));
             _initialized = false;
             return false;
+        }
+
+        if(!_blocking)
+        {
+            flags = fcntl(_childFd, F_GETFL);
+            if(flags == -1)
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not get FL flags for child socket: " + string(strerror(errno)) + " ... has the socket been opened?");
+                _initialized = false;
+                return false;
+            }
+
+            flags |= O_NONBLOCK;
+
+            if(fcntl(_childFd, F_SETFL, flags) == -1)
+            {
+                THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not set new FL flags for child socket: " + string(strerror(errno)));
+                _initialized = false;
+                return false;
+            }
         }
 
         _initialized = true;

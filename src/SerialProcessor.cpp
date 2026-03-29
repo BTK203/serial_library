@@ -91,7 +91,7 @@ namespace serial_library
         SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
         if(!transceiver)
         {
-            SERLIB_LOG_ERROR("%s: Transceiver is NULL. Please initialize using setTransceiver()", debugName.c_str());
+            // SERLIB_LOG_ERROR("%s: Transceiver is NULL. Please initialize using setTransceiver()", debugName.c_str());
             transceiverResource.unlockResource(std::move(transceiver));
             return;
         }

@@ -154,6 +154,12 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     } else if(tName == "linuxser")
     {
         return initLinuxSerialTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxudp")
+    {
+        return initLinuxUDPTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxdudp")
+    {
+        return initLinuxDualUDPTransceiverWithArgs(argc, argv, cursor);
     } else if(tName == "socketpair")
     {
         return initLinuxSocketpairTransceiverWithArgs(argc, argv, cursor);
