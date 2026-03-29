@@ -3,8 +3,6 @@
 
 using namespace serial_library;
 
-#if defined(USE_LINUX)
-
 using namespace std::chrono_literals;
 
 class TestTransceiver : public serial_library::SerialTransceiver
@@ -18,7 +16,7 @@ class TestTransceiver : public serial_library::SerialTransceiver
         return initRet;
     }
 
-    void send(const char *data, size_t numData) const { }
+    void send(const char *data, size_t numData) { }
     size_t recv(char *data, size_t numData) { return 0; }
     void deinit(void) { }
 
@@ -29,38 +27,24 @@ class TestTransceiver : public serial_library::SerialTransceiver
 
 TEST_F(Type1SerialProcessorTest, TestBasicRecvWithManualSendType1)
 {
-    serial_library::LinuxSerialTransceiver client(
-        homeDir() + "virtualsp2",
-        9600,
-        1,
-        0);
-    
-    client.init();
-    
     const char msg[] = "AqweA";
-
-    client.send(msg, sizeof(msg));
+    client->send(msg, sizeof(msg));
     
     Time startTime = curtime();
     processor->update(startTime);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
 
-    ASSERT_TRUE(compareSerialData(processor->getField(TYPE_1_FRAME_1_FIELD_1).data, serial_library::serialDataFromString("q", 1)));
+    bool
+        b1 = compareSerialData(processor->getField(TYPE_1_FRAME_1_FIELD_1).data, serial_library::serialDataFromString("q", 1));
+
+    ASSERT_TRUE(b1);
     ASSERT_TRUE(compareSerialData(processor->getField(TYPE_1_FRAME_1_FIELD_2).data, serial_library::serialDataFromString("w", 1)));
     ASSERT_TRUE(compareSerialData(processor->getField(TYPE_1_FRAME_1_FIELD_3).data, serial_library::serialDataFromString("e", 1)));
 }
 
 TEST_F(Type1SerialProcessorTest, TestBasicSendWithManualRecvType1)
 {
-    serial_library::LinuxSerialTransceiver client(
-        homeDir() + "virtualsp2",
-        9600,
-        1,
-        0);
-    
-    client.init();
-
     //pack msg and send
     processor->setField(TYPE_1_FRAME_1_FIELD_1, serial_library::serialDataFromString("a", 1), curtime());
     processor->setField(TYPE_1_FRAME_1_FIELD_2, serial_library::serialDataFromString("b", 1), curtime());
@@ -69,21 +53,13 @@ TEST_F(Type1SerialProcessorTest, TestBasicSendWithManualRecvType1)
     processor->send(TYPE_1_FRAME_1);
 
     char buf[4];
-    client.recv(buf, 4);
+    client->recv(buf, 4);
     
     ASSERT_TRUE(memcmp(buf, "Aabc", 4) == 0);
 }
 
 TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2WithTimestamps)
 {
-    serial_library::LinuxSerialTransceiver client(
-        homeDir() + "virtualsp2",
-        9600,
-        1,
-        0);
-    
-    client.init();
-
     //define messages (to be sent in increasing order)
     const char
         msg1[] = {'A', 'a', 0, 'b', 'c', 'A', 'd', 'e'},
@@ -92,7 +68,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2WithTimestamps)
     
     Time now = curtime();
 
-    client.send(msg1, sizeof(msg1));
+    client->send(msg1, sizeof(msg1));
     processor->update(now);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
@@ -108,7 +84,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2WithTimestamps)
     //test lastmsg timestamp
     ASSERT_EQ(processor->getLastMsgRecvTime(), now);
 
-    client.send(msg2, sizeof(msg2));
+    client->send(msg2, sizeof(msg2));
     processor->update(now);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
@@ -122,7 +98,7 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2WithTimestamps)
     //test lastmsg timestamp
     ASSERT_EQ(processor->getLastMsgRecvTime(), now);
     
-    client.send(msg3, sizeof(msg3));
+    client->send(msg3, sizeof(msg3));
     processor->update(now);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
@@ -139,20 +115,12 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvWithManualSendType2WithTimestamps)
 
 TEST_F(Type2SerialProcessorTest, TestNewMsgCallback)
 {
-    serial_library::LinuxSerialTransceiver client(
-        homeDir() + "virtualsp2",
-        9600,
-        1,
-        0);
-    
-    client.init();
-
     //define messages (to be sent in increasing order)
     const char msg1[] = {'A', 'a', 0, 'b', 'c', 'A', 'd', 'e'};
     
     Time now = curtime();
 
-    client.send(msg1, sizeof(msg1));
+    client->send(msg1, sizeof(msg1));
     processor->update(now);
 
     ASSERT_TRUE(processor->hasDataForField(FIELD_SYNC));
@@ -168,16 +136,10 @@ TEST_F(Type2SerialProcessorTest, TestNewMsgCallback)
 
 TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2WithShortcuts)
 {
-    //create another processor to recv
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> sender = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "/virtualsp2",
-        9600,
-        1,
-        0);
-    
+    //create another processor to recv    
     const char syncValue[1] = {'A'};
     serial_library::SerialProcessor senderProcessor(
-        std::move(sender),
+        std::move(client),
         TYPE_2_FRAME_MAP,
         Type2SerialFrames1::TYPE_2_FRAME_1,
         syncValue,
@@ -246,17 +208,10 @@ TEST_F(Type2SerialProcessorTest, TestBasicRecvAndSendType2WithShortcuts)
 }
 
 TEST_F(CallbacksTest, TestMsgReceivedCallback)
-{
-    //create another processor to recv
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> sender = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "/virtualsp2",
-        9600,
-        1,
-        0);
-    
+{   
     const char syncValue[1] = {'A'};
     serial_library::SerialProcessor senderProcessor(
-        std::move(sender),
+        std::move(client),
         TYPE_2_FRAME_MAP,
         Type2SerialFrames1::TYPE_2_FRAME_1,
         syncValue,
@@ -289,17 +244,10 @@ TEST_F(CallbacksTest, TestMsgReceivedCallback)
 }
 
 TEST_F(CallbacksTest, TestChecksumFuncs)
-{
-    //create another processor to recv
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> sender = std::make_unique<serial_library::LinuxSerialTransceiver>(
-        homeDir() + "/virtualsp2",
-        9600,
-        1,
-        0);
-    
+{    
     const char syncValue[1] = {'A'};
     serial_library::SerialProcessor senderProcessor(
-        std::move(sender),
+        std::move(client),
         TYPE_2_FRAME_MAP,
         Type2SerialFrames1::TYPE_2_FRAME_1,
         syncValue,
@@ -557,5 +505,3 @@ TEST(GenericType2SerialProcessorTest, TestConstructorTransceiverInitFailed)
         serial_library::SerialProcessor proc(std::move(badTrans), frames, Type2SerialFrames1::TYPE_2_FRAME_1, "ab", 2),
         SerialLibraryException);
 }
-
-#endif

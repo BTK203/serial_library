@@ -3,14 +3,20 @@
 #include "serial_library/serial_library.hpp"
 #include <gtest/gtest.h>
 
+
+class TransceiverTest : public ::testing::Test
+{
+    protected:
+    bool compareSerialData(const serial_library::SerialData& data1, const serial_library::SerialData& data2);
+};
+
 #if defined(USE_LINUX)
 
-class LinuxTransceiverTest : public ::testing::Test
+class LinuxTransceiverTest : public TransceiverTest
 {
     protected:
     void SetUp() override;
     void TearDown() override;
-    bool compareSerialData(const serial_library::SerialData& data1, const serial_library::SerialData& data2);
     std::string homeDir();
 
     private:
@@ -18,12 +24,27 @@ class LinuxTransceiverTest : public ::testing::Test
     pid_t socatProc;
 };
 
-class LinuxSerialProcessorTest : public LinuxTransceiverTest
+#endif
+
+#if defined(USE_WINDOWS)
+
+class WindowsTransceiverTest : public TransceiverTest
+{ };
+
+#endif
+
+class SerialProcessorTest : public TransceiverTest
 {
     protected:
+    void SetUp() override;
     bool waitForFrame(serial_library::SerialFrameId id, const serial_library::Time& now);
     serial_library::SerialProcessor::SharedPtr processor;
+    std::unique_ptr<serial_library::IntraProcessTransceiver> 
+        transceiver,
+        client;
 };
+
+
 
 //
 // type1 processor test stuff
@@ -40,15 +61,12 @@ enum Type1SerialFrame1Fields
     TYPE_1_FRAME_1_FIELD_3
 };
 
-class Type1SerialProcessorTest : public LinuxSerialProcessorTest
+class Type1SerialProcessorTest : public SerialProcessorTest
 {
     protected:
     void SetUp() override;
-    void TearDown() override;
 
     serial_library::SerialFramesMap frameMap;
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
-    serial_library::SerialProcessor::SharedPtr processor;
 };
 
 enum Type2SerialFrames1
@@ -117,22 +135,17 @@ static serial_library::SerialFramesMap TYPE_2_FRAME_MAP = {
         }
     };
 
-class Type2SerialProcessorTest : public LinuxSerialProcessorTest
+class Type2SerialProcessorTest : public SerialProcessorTest
 {
     protected:
     void SetUp() override;
-    void TearDown() override;
-
-    private:
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
 };
 
 
-class CallbacksTest : public LinuxSerialProcessorTest
+class CallbacksTest : public SerialProcessorTest
 {
     protected:
     void SetUp() override;
-    void TearDown() override;
 
     serial_library::SerialValuesMap lastReceivedSerialFrames() const;
     serial_library::Checksum lastGeneratedChecksum() const;
@@ -144,8 +157,5 @@ class CallbacksTest : public LinuxSerialProcessorTest
     serial_library::Checksum checksumGenerator(const char* msg, size_t len);
 
     serial_library::SerialValuesMap lastReceivedMap;
-    std::unique_ptr<serial_library::LinuxSerialTransceiver> transceiver;
     serial_library::Checksum lastChksm;
 };
-
-#endif

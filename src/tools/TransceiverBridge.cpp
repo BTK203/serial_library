@@ -51,7 +51,7 @@ serial_library::RosTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, c
 
 #else
 
-serial_library::SerialTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, char **argv)
+serial_library::SerialTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("ROS Support not built!");
     return nullptr;
@@ -117,19 +117,19 @@ serial_library::LinuxSocketpairTransceiver::SharedPtr initLinuxSocketpairTransce
 
 #else
 
-serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;
 }
 
-serial_library::LinuxUDPTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;
 }
 
-serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;

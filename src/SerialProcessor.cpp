@@ -73,14 +73,48 @@ namespace serial_library
 
     void SerialProcessor::setTransceiver(SerialTransceiver::UniquePtr& transceiver)
     {
-        if(hasTransceiver())
+        SerialTransceiver::UniquePtr activeTransceiver = transceiverResource.lockResource();
+
+        if(activeTransceiver.get() != nullptr)
         {
-            SERLIB_LOG_ERROR("Cannot set transceiver because it is already set");
+            SERLIB_LOG_INFO("%s: transceiver is already set, deiniting and replacing", debugName.c_str());
+            activeTransceiver->deinit();
+            activeTransceiver.reset();
+        }
+        
+        activeTransceiver = std::move(transceiver);
+
+        bool success = false;
+        try
+        {
+            success = activeTransceiver->init();
+        } catch (NonFatalSerialLibraryException& ex)
+        {
+            activeTransceiver.reset();
+            transceiverResource.unlockResource(std::move(activeTransceiver));
+            throw ex;
         }
 
+        if(!success)
+        {
+            activeTransceiver.reset();
+        }
+
+        transceiverResource.unlockResource(std::move(activeTransceiver));
+    }
+
+
+    void SerialProcessor::resetTransceiver()
+    {
+        SERLIB_LOG_INFO("%s: resetting transceiver", debugName.c_str());
         SerialTransceiver::UniquePtr activeTransceiver = transceiverResource.lockResource();
-        activeTransceiver = std::move(transceiver);
-        SERIAL_LIB_ASSERT(activeTransceiver->init(), "Transceiver initialization failed!");
+        
+        if(activeTransceiver != nullptr)
+        {
+            activeTransceiver->deinit();
+        }
+
+        activeTransceiver.reset();
         transceiverResource.unlockResource(std::move(activeTransceiver));
     }
 
@@ -89,9 +123,15 @@ namespace serial_library
     {
         //TODO can probably rewrite method and use SERIAL_LIB_ASSERT
         SerialTransceiver::UniquePtr transceiver = transceiverResource.lockResource();
+        
+        static bool warnedNullTransceiver = false;
         if(!transceiver)
         {
-            // SERLIB_LOG_ERROR("%s: Transceiver is NULL. Please initialize using setTransceiver()", debugName.c_str());
+            if(!warnedNullTransceiver)
+            {
+                SERLIB_LOG_ERROR("%s: Transceiver is NULL. Initialize using setTransceiver()\n", debugName.c_str());
+                warnedNullTransceiver = true;
+            }
             transceiverResource.unlockResource(std::move(transceiver));
             return;
         }
@@ -473,7 +513,7 @@ namespace serial_library
             auto iFrameIt = findit(it->second.begin(), it->second.end(), FIELD_FRAME);
 
             SERIAL_LIB_ASSERT((size_t) (iFrameIt - it->second.begin()) == frameFieldLoc, "Frame fields not aligned!");
-            SERIAL_LIB_ASSERT(findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
+            SERIAL_LIB_ASSERT(iFrameIt == it->second.end() || findit(iFrameIt + 1, it->second.end(), FIELD_FRAME) == it->second.end(), "Large frame fields are not supported yet.");
 
             //check that the sync is continuous
             size_t syncFrameLen = 1;
