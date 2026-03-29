@@ -96,6 +96,25 @@ serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWi
     return nullptr;
 }
 
+serial_library::LinuxSocketpairTransceiver::SharedPtr initLinuxSocketpairTransceiverWithArgs(int argc, char **argv, int *cursor)
+{
+    // need to define these args
+    // int childFd
+
+    if(argc <= *cursor + 1)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Socketpair Transceiver. Use transceiver_bridge ... socketpair [fd]");
+        return nullptr;
+    }
+
+    std::string fdStr = argv[*cursor + 1];
+    int fd = std::stoi(fdStr);
+
+    *cursor += 2;
+    SERLIB_LOG_INFO("Creating Linux Socketpair transceiver with fd=%d", fd);
+    return std::make_shared<serial_library::LinuxSocketpairTransceiver>(fd);
+}
+
 #else
 
 serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
@@ -123,7 +142,7 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     if(argc <= *cursor)
     {
         SERLIB_LOG_ERROR("Not enough arguments to init a transceiver; no transceiver type found. Use transceiver_bridge ... [transc_name] [transc_args...]");
-        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser");
+        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser, socketpair");
         return nullptr;
     }
 
@@ -135,6 +154,9 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     } else if(tName == "linuxser")
     {
         return initLinuxSerialTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "socketpair")
+    {
+        return initLinuxSocketpairTransceiverWithArgs(argc, argv, cursor);
     }
 
     // if we got here then the transceiver name is not known
@@ -165,6 +187,7 @@ void handleSignal(int signal)
 {
     if(signal == SIGINT)
     {
+        SERLIB_LOG_INFO("Transceiver bridge interrupted");
         isRunning = false;
     }
 }
@@ -211,11 +234,13 @@ int main(int argc, char **argv)
         t1(spin, trans1, trans2),
         t2(spin, trans2, trans1);
 
-    SERLIB_LOG_ERROR("Transceiver bridge started.");
+    SERLIB_LOG_INFO("Transceiver bridge started.");
     
     t1.join();
     t2.join();
 
+    SERLIB_LOG_INFO("Transceiver bridge deinit...");
     deinit(trans1, trans2);
+    SERLIB_LOG_INFO("Transceiver bridge done");
     return 0;
 }

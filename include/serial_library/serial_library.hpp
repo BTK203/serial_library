@@ -106,7 +106,8 @@ namespace serial_library
     /**
      * This transceiver should be used when a bidirectional UDP connection is desired
      * between two sockets connected to localhost. This is special functionality
-     * that requires two sockets per transceiver.
+     * that requires two sockets per transceiver, but may be useful for locally testing
+     * an application between two devices using UDP transport.
      */
     class LinuxDualUDPTransceiver : public SerialTransceiver
     {
@@ -123,6 +124,37 @@ namespace serial_library
         LinuxUDPTransceiver
             recvUDP,
             sendUDP;
+    };
+
+    class LinuxSocketpairTransceiver : public SerialTransceiver
+    {
+        public:
+        LinuxSocketpairTransceiver(int domain, int type, int protocol = 0, bool blocking = false);
+        LinuxSocketpairTransceiver(int childFd);
+
+        int childFd() const;
+        void postForkInit();
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) const override;
+        size_t recv(char *data, size_t numData) override;
+        void deinit(void) override;
+
+        private:
+        const int
+            _domain,
+            _type,
+            _protocol;
+        
+        const bool 
+            _isParent,
+            _blocking;
+
+        int
+            _parentFd,
+            _childFd;
+
+        bool _initialized;
     };
 }
 
