@@ -242,7 +242,8 @@ bool isRunning = true;
 
 void spin(
     const serial_library::SerialTransceiver::SharedPtr& sender,
-    const serial_library::SerialTransceiver::SharedPtr& recver)
+    const serial_library::SerialTransceiver::SharedPtr& recver,
+    int period)
 {
     char buf[4096];
 
@@ -253,6 +254,8 @@ void spin(
         {
             sender->send(buf, recvd);
         }
+
+        usleep(period);
     }
 }
 
@@ -286,6 +289,17 @@ int main(int argc, char **argv)
     serial_library::SerialTransceiver::SharedPtr
         trans1 = initWithArgs(argc, argv, &cursor),
         trans2 = initWithArgs(argc, argv, &cursor);
+
+    int period = 0;
+    for(; cursor < argc; cursor++)
+    {
+        std::string arg(argv[cursor]);
+        if(arg == "-p" || arg == "--period")
+        {
+            cursor++;
+            period = std::stoi(std::string(argv[cursor]));
+        }
+    }
     
     if(!trans1 || !trans2)
     {
@@ -305,8 +319,8 @@ int main(int argc, char **argv)
 
     //one thread translates messages from trans1 to trans2. The other translates from trans2 to trans1
     std::thread
-        t1(spin, trans1, trans2),
-        t2(spin, trans2, trans1);
+        t1(spin, trans1, trans2, period),
+        t2(spin, trans2, trans1, period);
 
     SERLIB_LOG_INFO("Transceiver bridge started.");
     
