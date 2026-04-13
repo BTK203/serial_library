@@ -185,7 +185,6 @@ namespace serial_library
             totalOfLastTenCounter++;
 
             msgStart = syncLocation - msgStartOffsetFromSync;
-            msgEnd = msgStart + frameSz;
 
             //check that we can parse for a frame id
             if(msgBufferCursorPos < frameSz)
@@ -224,6 +223,9 @@ namespace serial_library
                     }
                 }
             }
+
+            // now define end of frame now that we have selected the frame to use
+            msgEnd = msgStart + frameSz;
 
             bool msgPassesUserTest = true;
             if(set<SerialFieldId>(frameToUse.begin(), frameToUse.end()).count(FIELD_CHECKSUM) > 0)
