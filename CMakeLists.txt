@@ -17,9 +17,6 @@ find_package(rclcpp QUIET)
 find_package(std_msgs QUIET)
 find_package(Threads REQUIRED)
 
-#
-# serial_library subdirectory compilation file
-#
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 #

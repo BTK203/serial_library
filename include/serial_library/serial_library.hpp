@@ -194,6 +194,7 @@ namespace serial_library
 
 #if defined(USE_WINDOWS)
 
+#define NOMINMAX // this prevents windows from defining min() and max() macros which interfere with the stdlib functions (behaviortree will cry)
 #include <Windows.h>
 
 namespace serial_library
