@@ -1,4 +1,7 @@
 #include "serial_library/serial_library.hpp"
+
+#if defined(USE_LINUX)
+
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <netdb.h>
@@ -117,7 +120,7 @@ namespace serial_library
     }
 
 
-    void LinuxUDPTransceiver::send(const char *data, size_t numData) const
+    void LinuxUDPTransceiver::send(const char *data, size_t numData)
     {
         size_t ret = ::send(sock, data, numData, 0);
         if((ssize_t) ret == -1)
@@ -149,3 +152,5 @@ namespace serial_library
         close(sock);
     }
 }
+
+#endif

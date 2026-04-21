@@ -1,13 +1,9 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.15)
 project(serial_library)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-unused-function)
 endif()
-
-add_compile_options("-Wno-unused-parameter")
-add_compile_options("-Wno-unused-function")
-
 
 # GoogleTest requires at least C++17
 set(CMAKE_CXX_STANDARD 17)
@@ -16,9 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #
 # Requirements
 #
-find_package(ament_cmake)
-find_package(rclcpp)
-find_package(std_msgs)
+find_package(ament_cmake QUIET)
+find_package(rclcpp QUIET)
+find_package(std_msgs QUIET)
 find_package(Threads REQUIRED)
 
 #
@@ -28,10 +24,18 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 #
 # Compile src files
-#serial_library
+#
 
 file(GLOB serlib_src src/*.cpp)
 add_library(serial_library SHARED ${serlib_src})
+
+# gets rid of annoying automoc warning that qt likes to throw
+set_target_properties(serial_library PROPERTIES
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF)
+
+target_compile_definitions(serial_library PRIVATE SERLIB_BUILD)
 
 target_include_directories(serial_library PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -49,6 +53,12 @@ if(rclcpp_FOUND AND std_msgs_FOUND)
 endif()
 
 add_executable(transceiver_bridge src/tools/TransceiverBridge.cpp)
+
+set_target_properties(transceiver_bridge PROPERTIES
+   AUTOMOC OFF
+   AUTOUIC OFF
+   AUTORCC OFF)
+
 target_link_libraries(transceiver_bridge serial_library)
 
 install(TARGETS serial_library
@@ -58,7 +68,7 @@ install(TARGETS serial_library
         RUNTIME DESTINATION bin)
 
 install(TARGETS transceiver_bridge
-    DESTINATION lib/${PROJECT_NAME})
+   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/
     DESTINATION include)
@@ -77,12 +87,21 @@ endif()
 if(BUILD_TESTING)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
+    
+    # get GTest (https://github.com/google/googletest/tree/main/googletest#incorporating-into-an-existing-cmake-project)
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/52eb8108c5bdec04579160ae17225d66034bd723.zip
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
     file(GLOB test_src test/*.cpp)
     add_executable(test_serial_library ${test_src})
     target_include_directories(test_serial_library PUBLIC include)
     target_link_libraries(test_serial_library
-        PUBLIC gtest serial_library
+        PUBLIC gtest_main serial_library
         PRIVATE Threads::Threads)
     install(TARGETS test_serial_library
         DESTINATION lib/${PROJECT_NAME})

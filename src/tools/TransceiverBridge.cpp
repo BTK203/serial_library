@@ -51,7 +51,7 @@ serial_library::RosTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, c
 
 #else
 
-serial_library::SerialTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, char **argv)
+serial_library::SerialTransceiver::SharedPtr initRosTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("ROS Support not built!");
     return nullptr;
@@ -86,31 +86,115 @@ serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWith
 
 serial_library::LinuxUDPTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
-    SERLIB_LOG_ERROR("Linux UDP Transceiver support is not implemented yet");
-    return nullptr;
+    // need to define these args
+    // const std::string& address
+    // int port
+
+    if(argc <= *cursor + 2)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux UDP transceiver. Use transceiver_bridge ... linuxudp [address] [port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        portStr(argv[*cursor + 2]);
+    
+    int port = std::stoi(portStr);
+
+    *cursor += 3;
+    SERLIB_LOG_INFO("Creating Linux UDP transceiver with address=%s, port=%d", address.c_str(), port);
+    return std::make_shared<serial_library::LinuxUDPTransceiver>(address, port);
 }
 
 serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
-    SERLIB_LOG_ERROR("Linux Dual UDP Transceiver support is not implemented yet");
-    return nullptr;
+    // need to define these args
+    // const std::string& address
+    // int recvPort
+    // int sendPort
+
+    if(argc <= *cursor + 3)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Dual UDP transceiver. Use transceiver_bridge ... linuxdudp [address] [recv-port] [send-port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        recvPortStr(argv[*cursor + 2]),
+        sendPortStr(argv[*cursor + 3]);
+
+    int
+        recvPort = std::stoi(recvPortStr),
+        sendPort = std::stoi(sendPortStr);
+
+    *cursor += 4;
+    SERLIB_LOG_INFO("Creating Linux Dual-UDP transceiver with address=%s, recv-port=%d, send-port=%d", address.c_str(), recvPort, sendPort);
+    return std::make_shared<serial_library::LinuxDualUDPTransceiver>(address, recvPort, sendPort);
+}
+
+//defines a LinuxDualUDPTransceiver using two args - address and recv port. send port is recv port + 1
+serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
+{
+    // need to define these args
+    // const std::string& address
+    // int recvPort
+    // int sendPort
+
+    if(argc <= *cursor + 2)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Dual UDP transceiver. Use transceiver_bridge ... linuxdudp2 [address] [recv-port]");
+        return nullptr;
+    }
+
+    std::string
+        address(argv[*cursor + 1]),
+        recvPortStr(argv[*cursor + 2]);
+
+    int
+        recvPort = std::stoi(recvPortStr),
+        sendPort = recvPort + 1;
+
+    *cursor += 3;
+    SERLIB_LOG_INFO("Creating Linux Dual-UDP transceiver with address=%s, recv-port=%d, send-port=%d", address.c_str(), recvPort, sendPort);
+    return std::make_shared<serial_library::LinuxDualUDPTransceiver>(address, recvPort, sendPort);
+}
+
+serial_library::LinuxSocketpairTransceiver::SharedPtr initLinuxSocketpairTransceiverWithArgs(int argc, char **argv, int *cursor)
+{
+    // need to define these args
+    // int childFd
+
+    if(argc <= *cursor + 1)
+    {
+        SERLIB_LOG_ERROR("Not enough arguments for Linux Socketpair Transceiver. Use transceiver_bridge ... socketpair [fd]");
+        return nullptr;
+    }
+
+    std::string fdStr = argv[*cursor + 1];
+    int fd = std::stoi(fdStr);
+
+    *cursor += 2;
+    SERLIB_LOG_INFO("Creating Linux Socketpair transceiver with fd=%d", fd);
+    return std::make_shared<serial_library::LinuxSocketpairTransceiver>(fd);
 }
 
 #else
 
-serial_library::LinuxSerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxSerialTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;
 }
 
-serial_library::LinuxUDPTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;
 }
 
-serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
+serial_library::SerialTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs(int argc, char **argv, int *cursor)
 {
     SERLIB_LOG_ERROR("Linux support is not built");
     return nullptr;
@@ -123,7 +207,7 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     if(argc <= *cursor)
     {
         SERLIB_LOG_ERROR("Not enough arguments to init a transceiver; no transceiver type found. Use transceiver_bridge ... [transc_name] [transc_args...]");
-        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser");
+        SERLIB_LOG_ERROR("Some transceiver options: ros, linuxser, socketpair, linuxudp, linuxdudp, linuxdudp2");
         return nullptr;
     }
 
@@ -135,6 +219,18 @@ serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv,
     } else if(tName == "linuxser")
     {
         return initLinuxSerialTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxudp")
+    {
+        return initLinuxUDPTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxdudp")
+    {
+        return initLinuxDualUDPTransceiverWithArgs(argc, argv, cursor);
+    } else if(tName == "linuxdudp2")
+    {
+        return initLinuxDualUDPTransceiverWithTwoArgs(argc, argv, cursor);
+    } else if(tName == "socketpair")
+    {
+        return initLinuxSocketpairTransceiverWithArgs(argc, argv, cursor);
     }
 
     // if we got here then the transceiver name is not known
@@ -146,7 +242,8 @@ bool isRunning = true;
 
 void spin(
     const serial_library::SerialTransceiver::SharedPtr& sender,
-    const serial_library::SerialTransceiver::SharedPtr& recver)
+    const serial_library::SerialTransceiver::SharedPtr& recver,
+    int period)
 {
     char buf[4096];
 
@@ -157,6 +254,8 @@ void spin(
         {
             sender->send(buf, recvd);
         }
+
+        usleep(period);
     }
 }
 
@@ -165,6 +264,7 @@ void handleSignal(int signal)
 {
     if(signal == SIGINT)
     {
+        SERLIB_LOG_INFO("Transceiver bridge interrupted");
         isRunning = false;
     }
 }
@@ -189,6 +289,17 @@ int main(int argc, char **argv)
     serial_library::SerialTransceiver::SharedPtr
         trans1 = initWithArgs(argc, argv, &cursor),
         trans2 = initWithArgs(argc, argv, &cursor);
+
+    int period = 0;
+    for(; cursor < argc; cursor++)
+    {
+        std::string arg(argv[cursor]);
+        if(arg == "-p" || arg == "--period")
+        {
+            cursor++;
+            period = std::stoi(std::string(argv[cursor]));
+        }
+    }
     
     if(!trans1 || !trans2)
     {
@@ -208,14 +319,16 @@ int main(int argc, char **argv)
 
     //one thread translates messages from trans1 to trans2. The other translates from trans2 to trans1
     std::thread
-        t1(spin, trans1, trans2),
-        t2(spin, trans2, trans1);
+        t1(spin, trans1, trans2, period),
+        t2(spin, trans2, trans1, period);
 
-    SERLIB_LOG_ERROR("Transceiver bridge started.");
+    SERLIB_LOG_INFO("Transceiver bridge started.");
     
     t1.join();
     t2.join();
 
+    SERLIB_LOG_INFO("Transceiver bridge deinit...");
     deinit(trans1, trans2);
+    SERLIB_LOG_INFO("Transceiver bridge done");
     return 0;
 }

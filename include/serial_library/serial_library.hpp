@@ -12,26 +12,58 @@
 #include <sys/socket.h>
 #endif
 
-
-
-
 //
 // SerialTransceiver base class declaration
 //
 namespace serial_library
 {
-    class SerialTransceiver
+    class SERLIB_API SerialTransceiver
     {
         public:
-        #if defined(USE_LINUX)
         typedef std::shared_ptr<SerialTransceiver> SharedPtr;
         typedef std::unique_ptr<SerialTransceiver> UniquePtr;
-        #endif
 
         virtual bool init(void) = 0;
-        virtual void send(const char *data, size_t numData) const = 0;
+        virtual void send(const char *data, size_t numData) = 0;
         virtual size_t recv(char *data, size_t numData) = 0;
         virtual void deinit(void) = 0;
+    };
+
+
+    class SERLIB_API IntraProcessChannel
+    {
+        public:
+        IntraProcessChannel() = default;
+        void setPartner(const std::shared_ptr<IntraProcessChannel>& partner);
+        bool hasPartner() const;
+
+        void send(const char *data, size_t numData);
+        size_t recv(char *data, size_t numData);
+
+        protected:
+        void injectData(const char *data, size_t numData);
+
+        private:
+        vector<char> _data;
+        std::shared_ptr<IntraProcessChannel> _partner;
+    };
+
+
+    class SERLIB_API IntraProcessTransceiver : public SerialTransceiver
+    {
+        public:
+        IntraProcessTransceiver(const std::shared_ptr<IntraProcessChannel>& channel);
+        IntraProcessTransceiver();
+
+        std::shared_ptr<IntraProcessChannel> getChannel();
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) override;
+        size_t recv(char *data, size_t numData) override;
+        void deinit(void) override;
+
+        private:
+        std::shared_ptr<IntraProcessChannel> _channel;
     };
 }
 
@@ -39,7 +71,7 @@ namespace serial_library
 
 namespace serial_library
 {
-    class LinuxSerialTransceiver : public SerialTransceiver
+    class SERLIB_API LinuxSerialTransceiver : public SerialTransceiver
     {
         public:
         LinuxSerialTransceiver() = default;
@@ -54,7 +86,7 @@ namespace serial_library
             bool parityBit = false);
 
         bool init(void) override;
-        void send(const char *data, size_t numData) const override;
+        void send(const char *data, size_t numData) override;
         size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
@@ -75,7 +107,7 @@ namespace serial_library
     };
 
 
-    class LinuxUDPTransceiver : public SerialTransceiver
+    class SERLIB_API LinuxUDPTransceiver : public SerialTransceiver
     {
         public:
         LinuxUDPTransceiver() = default;
@@ -88,7 +120,7 @@ namespace serial_library
             bool allowAddrReuse=false);
 
         bool init(void) override;
-        void send(const char *data, size_t numData) const override;
+        void send(const char *data, size_t numData) override;
         size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
@@ -106,16 +138,17 @@ namespace serial_library
     /**
      * This transceiver should be used when a bidirectional UDP connection is desired
      * between two sockets connected to localhost. This is special functionality
-     * that requires two sockets per transceiver.
+     * that requires two sockets per transceiver, but may be useful for locally testing
+     * an application between two devices using UDP transport.
      */
-    class LinuxDualUDPTransceiver : public SerialTransceiver
+    class SERLIB_API LinuxDualUDPTransceiver : public SerialTransceiver
     {
         public:
         LinuxDualUDPTransceiver() = default;
         LinuxDualUDPTransceiver(const std::string& address, int recvPort, int sendPort, double recvTimeoutSeconds = 0.01, bool allowReuseAddr = false);
 
         bool init(void) override;
-        void send(const char *data, size_t numData) const override;
+        void send(const char *data, size_t numData) override;
         size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
@@ -124,6 +157,80 @@ namespace serial_library
             recvUDP,
             sendUDP;
     };
+
+    class LinuxSocketpairTransceiver : public SerialTransceiver
+    {
+        public:
+        LinuxSocketpairTransceiver(int domain, int type, int protocol = 0, bool blocking = false);
+        LinuxSocketpairTransceiver(int childFd);
+
+        int childFd() const;
+        void postForkInit();
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) override;
+        size_t recv(char *data, size_t numData) override;
+        void deinit(void) override;
+
+        private:
+        const int
+            _domain,
+            _type,
+            _protocol;
+        
+        const bool 
+            _isParent,
+            _blocking;
+
+        int
+            _parentFd,
+            _childFd;
+
+        bool _initialized;
+    };
+}
+
+#endif
+
+#if defined(USE_WINDOWS)
+
+#include <Windows.h>
+
+namespace serial_library
+{
+    SERLIB_API std::string getWindowsMsgAsString(DWORD error);
+
+    class WindowsSerialTransceiver : public SerialTransceiver 
+    {
+        public:
+        WindowsSerialTransceiver(
+            const std::string& name,
+            DWORD baud = CBR_115200,
+            DWORD readTimeout = 0,
+            DWORD mode = GENERIC_READ | GENERIC_WRITE,
+            DWORD bitsPerByte = 8,
+            DWORD stopBits = ONESTOPBIT,
+            DWORD parityBit = NOPARITY);
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) override;
+        size_t recv(char *data, size_t numData) override;
+        void deinit(void) override;
+
+        private:
+        const std::string _portName;
+        const DWORD
+            _baud,
+            _readTimeout,
+            _mode,
+            _bitsPerByte,
+            _stopBits,
+            _parityBit;
+
+        HANDLE _port;
+        bool _initialized;
+    };
+
 }
 
 #endif
@@ -144,7 +251,7 @@ namespace serial_library
         RosTransceiver(const rclcpp::Node::SharedPtr& node, const std::string& ns, size_t maxQSz = 5, bool isBridge = false);
         
         bool init(void) override;
-        void send(const char *data, size_t numData) const override;
+        void send(const char *data, size_t numData) override;
         size_t recv(char *data, size_t numData) override;
         void deinit(void) override;
 
@@ -171,26 +278,26 @@ namespace serial_library
 
 namespace serial_library
 {
-    char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle);
-    size_t extractFieldFromBuffer(const char *src, size_t srcLen, SerialFrame frame, SerialFieldId field, char *dst, size_t dstLen);
-    void insertFieldToBuffer(char *dst, size_t dstLen, SerialFrame frame, SerialFieldId field, const char *src, size_t srcLen);
-    size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
-    size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
-    SerialData serialDataFromString(const char *str, size_t numData);
-    SerialData serialDataFromString(const string& data);
-    SerialData switchDataEndianness(const SerialData& data);
-    SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
-    SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);
-    SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data);
+    SERLIB_API string wStringToString(const std::wstring& wstr);
+    SERLIB_API char *memstr(const char *haystack, size_t numHaystack, const char *needle, size_t numNeedle);
+    SERLIB_API size_t extractFieldFromBuffer(const char *src, size_t srcLen, SerialFrame frame, SerialFieldId field, char *dst, size_t dstLen);
+    SERLIB_API void insertFieldToBuffer(char *dst, size_t dstLen, SerialFrame frame, SerialFieldId field, const char *src, size_t srcLen);
+    SERLIB_API size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
+    SERLIB_API size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
+    SERLIB_API SerialData serialDataFromString(const char *str, size_t numData);
+    SERLIB_API SerialData switchDataEndianness(const SerialData& data);
+    SERLIB_API SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
+    SERLIB_API SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);
+    SERLIB_API SerialDataStamped switchStampedDataEndianness(const SerialDataStamped& data);
     
-    size_t countInString(const string& s, char c);
+    SERLIB_API size_t countInString(const string& s, char c);
 
     typedef pair<SerialFrameId, size_t> SerialFrameComponent;
-    SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components);
+    SERLIB_API SerialFrame assembleSerialFrame(const vector<SerialFrameComponent>& components);
     
     // "normalized" in this case means that the frame starts with a sync, makes processing easier
-    SerialFrame normalizeSerialFrame(const SerialFrame& frame);
-    SerialFramesMap normalizeSerialFramesMap(const SerialFramesMap& map);
+    SERLIB_API SerialFrame normalizeSerialFrame(const SerialFrame& frame);
+    SERLIB_API SerialFramesMap normalizeSerialFramesMap(const SerialFramesMap& map);
 
     // packs c string into primitive type. 0 is most significant
     template<typename T>
@@ -301,10 +408,8 @@ namespace serial_library
     class SerialProcessor
     {
         public:
-        #if defined(USE_LINUX)
         typedef std::shared_ptr<SerialProcessor> SharedPtr;
         typedef std::unique_ptr<SerialProcessor> UniquePtr;
-        #endif
 
         SerialProcessor() = default;
 
@@ -331,6 +436,7 @@ namespace serial_library
 
         bool hasTransceiver();
         void setTransceiver(SerialTransceiver::UniquePtr& transceiver);
+        void resetTransceiver();
         void update(const Time& now);
         bool hasDataForField(SerialFieldId field);
         Time getLastMsgRecvTime(void) const;
