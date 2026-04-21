@@ -7,7 +7,6 @@
 #define USE_WINDOWS
     // dll import and export
     #if defined(SERLIB_BUILD)
-    #pragma message("ass")
     // #define SERLIB_API
     #define SERLIB_API _declspec(dllexport)
     #else
