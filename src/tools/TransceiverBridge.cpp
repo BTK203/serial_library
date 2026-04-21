@@ -1,5 +1,13 @@
 #include "serial_library/serial_library.hpp"
 
+// sleep function
+#if defined(USE_LINUX)
+#define sleepus(us) usleep(us)
+#elif defined(USE_WINDOWS)
+#include <synchapi.h>
+#define sleepus(us) Sleep((us) / 1000)
+#endif
+
 #if defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 
@@ -135,7 +143,7 @@ serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWi
 }
 
 //defines a LinuxDualUDPTransceiver using two args - address and recv port. send port is recv port + 1
-serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
+serial_library::LinuxDualUDPTransceiver::SharedPtr initLinxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
 {
     // need to define these args
     // const std::string& address
@@ -200,6 +208,18 @@ serial_library::SerialTransceiver::SharedPtr initLinuxDualUDPTransceiverWithArgs
     return nullptr;
 }
 
+serial_library::SerialTransceiver::SharedPtr initLinuxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
+{
+    SERLIB_LOG_ERROR("Linux support is not built");
+    return nullptr;
+}
+
+serial_library::SerialTransceiver::SharedPtr initLinuxSocketpairTransceiverWithArgs(int argc, char **argv, int *cursor)
+{
+    SERLIB_LOG_ERROR("Linux support is not built");
+    return nullptr;
+}
+
 #endif
 
 serial_library::SerialTransceiver::SharedPtr initWithArgs(int argc, char **argv, int *cursor)
@@ -255,7 +275,7 @@ void spin(
             sender->send(buf, recvd);
         }
 
-        usleep(period);
+        sleepus(period);
     }
 }
 
