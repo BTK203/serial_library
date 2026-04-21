@@ -27,7 +27,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 #
 
 file(GLOB serlib_src src/*.cpp)
-add_library(serial_library SHARED ${serlib_src})
+add_library(serial_library ${serlib_src})
 
 # gets rid of annoying automoc warning that qt likes to throw
 set_target_properties(serial_library PROPERTIES
