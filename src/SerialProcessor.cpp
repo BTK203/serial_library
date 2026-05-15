@@ -250,7 +250,7 @@ namespace serial_library
                 for(auto it = frameToUse.begin(); it != frameToUse.end(); it++)
                 {
                     std::unique_ptr<SerialValuesMap> values = valueMapResource.lockResource();
-                    if(values->find(*it) == values->end())
+                    if(values && values->find(*it) == values->end())
                     {
                         values->insert({ *it, SerialDataStamped() });
                     }
