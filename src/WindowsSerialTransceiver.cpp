@@ -103,9 +103,15 @@ namespace serial_library
     {
         DWORD bsRead = 0;
 
-        if(_initialized)
+        if(_initialized && _port != INVALID_HANDLE_VALUE && data && numData > 0)
         {
-            ReadFile(_port, data, numData, &bsRead, NULL);
+            BOOL status = ReadFile(_port, data, static_cast<DWORD>(numData), &bsRead, NULL);
+            if(!status)
+            {
+                DWORD err = GetLastError();
+                SERLIB_LOG_ERROR("ReadFile failed on port %s: %s", _portName.c_str(), getWindowsMsgAsString(err).c_str());
+                bsRead = 0;
+            }
         }
 
         return bsRead;
