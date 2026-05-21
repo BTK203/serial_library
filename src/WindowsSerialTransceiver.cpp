@@ -93,7 +93,7 @@ namespace serial_library
 
             if(!status)
             {
-                SERLIB_LOG_ERROR("Failed to send out port %s: %s", _portName + ": " + getWindowsMsgAsString(GetLastError()));
+                SERLIB_LOG_ERROR("Failed to send out port %s: %s", _portName.c_str(), getWindowsMsgAsString(GetLastError()));
             }
         }
     }
