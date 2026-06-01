@@ -77,7 +77,7 @@ namespace serial_library
         LinuxSerialTransceiver() = default;
         LinuxSerialTransceiver(
             const std::string& fileName,
-            int baud,
+            int baud = 115200,
             int minimumBytes = 1,
             int maximumTimeout = 0,
             int mode = O_RDWR,
@@ -105,6 +105,8 @@ namespace serial_library
             twoStopBits,
             parityBit;
     };
+
+    typedef LinuxSerialTransceiver SerialTransceiverImpl;
 
 
     class SERLIB_API LinuxUDPTransceiver : public SerialTransceiver
@@ -231,6 +233,8 @@ namespace serial_library
         bool _initialized;
     };
 
+    typedef WindowsSerialTransceiver SerialTransceiverImpl;
+
 }
 
 #endif
@@ -285,6 +289,7 @@ namespace serial_library
     SERLIB_API size_t deleteFieldAndShiftBuffer(char *buf, size_t bufLen, SerialFrame frame, SerialFieldId field);
     SERLIB_API size_t deleteChecksumFromBuffer(char *buf, size_t bufLen, SerialFrame frame);
     SERLIB_API SerialData serialDataFromString(const char *str, size_t numData);
+    SERLIB_API std::string stringFromSerialData(const SerialData& data);
     SERLIB_API SerialData switchDataEndianness(const SerialData& data);
     SERLIB_API SerialDataStamped serialDataStampedFromString(const char *str, size_t numData, const Time& stamp);
     SERLIB_API SerialDataStamped serialDataStampedFromString(const string& data, const Time& stamp);

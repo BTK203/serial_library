@@ -153,6 +153,12 @@ namespace serial_library
     }
 
 
+    std::string stringFromSerialData(const SerialData& data)
+    {
+        return std::string(data.data, data.numData);
+    }
+
+
     SerialData switchDataEndianness(const SerialData& data)
     {
         SerialData ret = data;

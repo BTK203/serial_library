@@ -1,5 +1,7 @@
 #include "serial_library/serial_library.hpp"
 
+#include <thread>
+
 #if defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 

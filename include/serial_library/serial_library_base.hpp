@@ -45,7 +45,7 @@
 //
 // settings
 //
-#define MAX_DATA_BYTES 64
+#define MAX_DATA_BYTES 2048
 #define PROCESSOR_BUFFER_SIZE 4096
 
 namespace serial_library
