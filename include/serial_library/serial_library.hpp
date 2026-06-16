@@ -71,7 +71,32 @@ namespace serial_library
 
 namespace serial_library
 {
-    class SERLIB_API LinuxSerialTransceiver : public SerialTransceiver
+    class SERLIB_API LinuxFileTransceiver : public SerialTransceiver
+    {
+        public:
+        LinuxFileTransceiver() = default;
+        LinuxFileTransceiver(const std::string& fileName, int mode = O_RDWR | O_NONBLOCK);
+
+        bool init(void) override;
+        void send(const char *data, size_t numData) override;
+        size_t recv(char *data, size_t numData) override;
+        void deinit(void) override;
+
+        protected:
+        int fileHandle() const;
+
+        private:
+        std::string fileName;
+        int 
+            file,
+            mode;
+
+        bool initialized;
+    };
+
+    typedef LinuxFileTransceiver LinuxHIDTransceiver;
+
+    class SERLIB_API LinuxSerialTransceiver : public LinuxFileTransceiver
     {
         public:
         LinuxSerialTransceiver() = default;
@@ -80,22 +105,16 @@ namespace serial_library
             int baud = 115200,
             int minimumBytes = 1,
             int maximumTimeout = 0,
-            int mode = O_RDWR,
+            int mode = O_RDWR | O_NONBLOCK,
             int bitsPerByte = CS8,
             bool twoStopBits = false,
             bool parityBit = false);
 
         bool init(void) override;
-        void send(const char *data, size_t numData) override;
-        size_t recv(char *data, size_t numData) override;
-        void deinit(void) override;
 
         private:
-        std::string fileName;
         int
-            file,
             baud,
-            mode,
             bitsPerByte,
             minimumBytes,
             maximumTimeout;

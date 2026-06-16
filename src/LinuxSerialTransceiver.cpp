@@ -16,15 +16,14 @@ namespace serial_library
         int bitsPerByte,
         bool twoStopBits,
         bool parityBit)
-          : fileName(fileName),
-            baud(baud),
-            mode(mode),
-            bitsPerByte(bitsPerByte),
-            minimumBytes(minimumBytes),
-            maximumTimeout(maximumTimeout),
-            initialized(false),
-            twoStopBits(twoStopBits),
-            parityBit(parityBit) { }
+         : LinuxFileTransceiver(fileName, mode),
+           baud(baud),
+           bitsPerByte(bitsPerByte),
+           minimumBytes(minimumBytes),
+           maximumTimeout(maximumTimeout),
+           initialized(false),
+           twoStopBits(twoStopBits),
+           parityBit(parityBit) { }
     
 
     bool LinuxSerialTransceiver::init(void)
@@ -32,10 +31,8 @@ namespace serial_library
         //
         // SERIAL PORT OPEN
         //
-        file = open(fileName.c_str(), mode);
-        if(file < 0)
+        if(!LinuxFileTransceiver::init())
         {
-            THROW_FATAL_SERIAL_LIB_EXCEPTION("Could not open file " + string(fileName.c_str()) + ": " + string(strerror(errno)));
             initialized = false;
             return false;
         }
@@ -46,7 +43,7 @@ namespace serial_library
         struct termios config;
         
         //init config with current settings
-        if(tcgetattr(file, &config) < 0)
+        if(tcgetattr(fileHandle(), &config) < 0)
         {
             THROW_FATAL_SERIAL_LIB_EXCEPTION("tcgetattr() failed: " + string(strerror(errno)));
             initialized = false;
@@ -80,7 +77,7 @@ namespace serial_library
         config.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); //disable special handling of input
         config.c_oflag &= ~(OPOST | ONLCR); //disable special handling of output bytes
 
-        if(tcsetattr(file, TCSANOW, &config))
+        if(tcsetattr(fileHandle(), TCSANOW, &config))
         {
             THROW_FATAL_SERIAL_LIB_EXCEPTION("tcsetattr() failed: " + string(strerror(errno)));
             initialized = false;
@@ -89,48 +86,6 @@ namespace serial_library
 
         initialized = true;
         return true;
-    }
-
-
-    void LinuxSerialTransceiver::send(const char *data, size_t numData)
-    {
-        if(initialized)
-        {
-            ssize_t ret = write(file, data, numData);
-
-            if(ret < 0)
-            {
-                SERLIB_LOG_ERROR("Failed to send: %s", strerror(errno));
-            }
-        }
-    }
-
-
-    size_t LinuxSerialTransceiver::recv(char *data, size_t numData)
-    {
-        memset(data, 0, numData);
-        if(initialized)
-        {
-            ssize_t ret = read(file, data, numData);
-            if(ret < 0)
-            {
-                return 0;
-            }
-
-            return ret;
-        }
-
-        return 0;
-    }
-
-
-    void LinuxSerialTransceiver::deinit(void)
-    {
-        if(initialized)
-        {
-            close(file);
-            initialized = false;
-        }
     }
 }
 

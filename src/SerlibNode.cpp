@@ -77,7 +77,7 @@ namespace serial_library
     {
         declare_parameters("", std::map<std::string, rclcpp::ParameterValue>{
             { "transceiver", rclcpp::ParameterValue("ser") },
-            { "serial_port", rclcpp::ParameterValue("/dev/ttyUSB0") },
+            { "file", rclcpp::ParameterValue("/dev/ttyUSB0") },
             { "serial_baud", rclcpp::ParameterValue(9600) },
             { "ros_ns", rclcpp::ParameterValue("/motor") }
         });
@@ -88,7 +88,7 @@ namespace serial_library
     {
         std::string 
             transType = get_parameter("transceiver").as_string(),
-            port = get_parameter("serial_port").as_string();
+            file = get_parameter("file").as_string();
 
         int baud = get_parameter("serial_baud").as_int();
         std::string rosNs = get_parameter("ros_ns").as_string();
@@ -101,8 +101,12 @@ namespace serial_library
             serial_library::SerialTransceiver::UniquePtr transceiver = nullptr;
             if(transType == "ser")
             {
-                RCLCPP_INFO(get_logger(), "Serial transceiver port \"%s\" baud %d", port.c_str(), baud);
-                transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(port, baud);
+                RCLCPP_INFO(get_logger(), "Serial transceiver port \"%s\" baud %d", file.c_str(), baud);
+                transceiver = std::make_unique<serial_library::LinuxSerialTransceiver>(file, baud, 0, 1);
+            } else if(transType == "file")
+            {
+                RCLCPP_INFO(get_logger(), "File transceiver file \"%s\"", file.c_str());
+                transceiver = std::make_unique<serial_library::LinuxFileTransceiver>(file, O_RDWR | O_NONBLOCK);
             } else if(transType == "ros")
             {
                 RCLCPP_INFO(get_logger(), "ROS transceiver namespace \"%s\"", rosNs.c_str());

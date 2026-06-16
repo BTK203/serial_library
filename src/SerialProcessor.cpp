@@ -369,6 +369,10 @@ namespace serial_library
         SerialDataStamped stampedData;
         stampedData.data = data;
         stampedData.timestamp = now;
+        if(switchEndianness)
+        {
+            stampedData = switchStampedDataEndianness(stampedData);
+        }
         values->at(field) = stampedData;
         valueMapResource.unlockResource(std::move(values));
     }

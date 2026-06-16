@@ -9,14 +9,15 @@ TEST_F(LinuxTransceiverTest, TestTransceiverRdWr)
         homeDir() + "virtualsp1",
         9600,
         1,
-        0);
+        0,
+        O_RDWR);
     
     serial_library::LinuxSerialTransceiver transceiver2(
         homeDir() + "virtualsp2",
         9600,
         1,
-        0
-    );
+        0,
+        O_RDWR);
 
     const std::string
         expectedMsg1 = "Hello world!",
