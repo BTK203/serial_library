@@ -93,7 +93,7 @@ namespace serial_library
         int baud = get_parameter("serial_baud").as_int();
         std::string rosNs = get_parameter("ros_ns").as_string();
 
-        RCLCPP_INFO(get_logger(), "Init transcevier, type %s", transType.c_str());
+        RCLCPP_INFO_ONCE(get_logger(), "Init transcevier, type %s", transType.c_str());
 
         //initialize serial library
         try
@@ -111,6 +111,10 @@ namespace serial_library
             {
                 RCLCPP_INFO(get_logger(), "ROS transceiver namespace \"%s\"", rosNs.c_str());
                 transceiver = std::make_unique<serial_library::RosTransceiver>(shared_from_this(), rosNs);
+            } else
+            {
+                RCLCPP_INFO_ONCE(get_logger(), "No transceiver specified (\"%s\")", transType.c_str());
+                return;
             }
 
             if(!transceiver)
