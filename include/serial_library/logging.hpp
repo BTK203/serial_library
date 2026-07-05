@@ -12,9 +12,15 @@
 #define SERLIB_LOG_GENERIC(level, ...) serlibLoggingFunc(SerlibLogLevel::level, "[serlib] [" #level "] " __VA_ARGS__)
 #endif
 
-#define SERLIB_LOG_DEBUG(...) SERLIB_LOG_GENERIC(SERLIB_DEBUG, __VA_ARGS__)
-#define SERLIB_LOG_INFO(...)  SERLIB_LOG_GENERIC(SERLIB_INFO, __VA_ARGS__)
-#define SERLIB_LOG_ERROR(...) SERLIB_LOG_GENERIC(SERLIB_ERROR, __VA_ARGS__)
+#if defined(USE_ROS)
+    #define SERLIB_LOG_DEBUG(...) RCLCPP_DEBUG(rclcpp::get_logger("serlib"), __VA_ARGS__)
+    #define SERLIB_LOG_INFO(...) RCLCPP_INFO(rclcpp::get_logger("serlib"), __VA_ARGS__)
+    #define SERLIB_LOG_ERROR(...) RCLCPP_ERROR(rclcpp::get_logger("serlib"), __VA_ARGS__)
+#else
+    #define SERLIB_LOG_DEBUG(...) SERLIB_LOG_GENERIC(SERLIB_DEBUG, __VA_ARGS__)
+    #define SERLIB_LOG_INFO(...)  SERLIB_LOG_GENERIC(SERLIB_INFO, __VA_ARGS__)
+    #define SERLIB_LOG_ERROR(...) SERLIB_LOG_GENERIC(SERLIB_ERROR, __VA_ARGS__)
+#endif
 
 enum SerlibLogLevel
 {
