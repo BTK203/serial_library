@@ -454,7 +454,12 @@ namespace serial_library
 
         if(!transceiver)
         {
-            SERLIB_LOG_ERROR("%s: Transceiver is NULL for some reason", debugName.c_str());
+            static bool printedNullWarning = false;
+            if(!printedNullWarning)
+            {
+                SERLIB_LOG_ERROR("%s: Transceiver is NULL for some reason", debugName.c_str());
+                printedNullWarning = true;
+            }
             transceiverResource.unlockResource(std::move(transceiver));
             return;
         }
