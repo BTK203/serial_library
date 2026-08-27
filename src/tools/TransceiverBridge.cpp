@@ -8,6 +8,8 @@
 #define sleepus(us) Sleep((us) / 1000)
 #endif
 
+#include <thread>
+
 #if defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
 
