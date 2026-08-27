@@ -144,6 +144,13 @@ serial_library::LinuxDualUDPTransceiver::SharedPtr initLinuxDualUDPTransceiverWi
     return std::make_shared<serial_library::LinuxDualUDPTransceiver>(address, recvPort, sendPort);
 }
 
+
+serial_library::SerialTransceiver::SharedPtr initLinuxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
+{
+    SERLIB_LOG_ERROR("not implemented yet");
+    return nullptr;
+}
+
 //defines a LinuxDualUDPTransceiver using two args - address and recv port. send port is recv port + 1
 serial_library::LinuxDualUDPTransceiver::SharedPtr initLinxDualUDPTransceiverWithTwoArgs(int argc, char **argv, int *cursor)
 {
